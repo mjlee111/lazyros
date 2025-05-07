@@ -1,0 +1,17 @@
+# Configuration for restarting ROS nodes
+# Map the full node name (including namespace) to the command used to launch it.
+# NOTE: This assumes running the command will start a new instance.
+#       A robust restart might require killing the old process first,
+#       which is more complex and not handled by this basic example.
+nodes:
+  /turtlesim:
+    command: "ros2 run turtlesim turtlesim_node"
+  /camera/camera:
+    command: "ros2 launch realsense2_camera rs_launch.py align_depth.enable:=true enable_color:=true enable_depth:=true pointcloud.enable:=true"
+  # Add other nodes you want to be able to restart here
+  # Example with launch file:
+  # /my_namespace/my_node:
+  #   command: "ros2 launch my_package my_launch_file.py"
+  # Example with arguments:
+  # /param_node:
+  #   command: "ros2 run my_package param_node_exec --ros-args -p my_param:=value"

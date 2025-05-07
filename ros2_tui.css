@@ -1,0 +1,59 @@
+/* Basic screen layout */
+Screen {
+    layout: vertical;
+}
+
+/* Container for the two panes */
+Horizontal {
+    height: 1fr;
+}
+
+/* Common frame styling */
+#left-frame, #right-frame {
+    width: 1fr; /* Share width equally initially */
+    border: round white; /* Simple rounded border */
+    margin: 1; /* Add margin around frames */
+    padding: 1; /* Add padding inside frames */
+    /* Use vertical layout for title and content */
+    layout: vertical;
+}
+
+/* Specific width for left frame */
+#left-frame {
+    width: 30%; /* 3 parts */
+}
+
+/* Specific width for right frame */
+#right-frame {
+    width: 70%; /* 7 parts */
+}
+
+/* Style for the frame titles */
+.frame-title {
+    text-style: bold;
+    text-align: center; /* Center text within the Static widget */
+    width: 100%; /* Take full width of the frame */
+    margin-bottom: 1; /* Space below title */
+}
+
+/* Style for the content area within the frames */
+#node-list-content, #log-view-content { /* Updated ID for right pane content */
+    border: none; /* Ensure no extra borders */
+    height: 1fr; /* Take remaining space in the frame */
+    overflow-y: auto; /* Allow scrolling if content overflows */
+}
+
+/* Remove border from the ListView itself */
+#node-list-content ListView {
+    border: none;
+}
+
+/* Adjust label inside node list content */
+#node-list-content Label {
+    margin-bottom: 0;
+}
+
+/* Style the RichLog within the log view */
+#log-view-content RichLog {
+    border: none; /* Ensure no extra borders */
+}
