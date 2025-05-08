@@ -4,6 +4,8 @@
 #       A robust restart might require killing the old process first,
 #       which is more complex and not handled by this basic example.
 nodes:
+  /safety_controller_driver_node:
+    command: "ros2 launch modbus_tcp_driver bringup.launch.py use_fake:=true"
   /turtlesim:
     command: "ros2 run turtlesim turtlesim_node"
   /camera/camera:
