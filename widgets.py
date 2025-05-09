@@ -14,7 +14,6 @@ from textual.widgets import (
     ListItem,
     ListView,
     RichLog,
-    Static,
 )
 from rich.markup import escape# Import escape function
 
@@ -38,6 +37,7 @@ class NodeListWidget(Container):
         self.previous_node_names = set() # Store previous names
         self.restart_config = restart_config or {} # Configuration for node restart commands
         print("NodeListWidget.__init__: Restart config:", self.restart_config)
+        self.selected_node_name = None # Store the selected node name
 
     def compose(self) -> ComposeResult:
         yield Label("ROS Nodes:")
@@ -45,10 +45,9 @@ class NodeListWidget(Container):
 
     def on_mount(self) -> None:
         """Called when the widget is mounted."""
-        print("NodeListWidget.on_mount: Widget mounted")
-        self.update_node_list()
-        self.set_interval(1.0, self.update_node_list) # Update every second
-        # Set focus to the list view
+        
+        self.set_interval(1, self.update_node_list) # Update every second
+        self.set_interval(0.1, self.update_log_and_info) # Update log and info every 0.1 seconds
         self.node_list_view.focus()
 
     def update_node_list(self) -> None:
@@ -204,16 +203,24 @@ class NodeListWidget(Container):
             child = selected_item.children[0]
             raw_name = str(child.renderable).strip() if hasattr(child, 'renderable') else str(child).strip() # type: ignore
             node_name = raw_name[1:].replace('/', '.') if raw_name.startswith('/') else raw_name.replace('/', '.')
-            
-            log_view = self.app.query_one("#log-view-content", LogViewWidget) # type: ignore
-            log_view.filter_logs(node_name)
-
-            info_view = self.app.query_one("#info-view-content", InfoViewWidget) # type: ignore
-            info_view.update_info(node_name)
+            self.selected_node_name = node_name
+            print(f"NodeListWidget.on_list_view_highlighted: Selected node: {node_name}")
             
         except Exception as e:
             print(f"Error updating log filter: {e}")
+            
+    def update_log_and_info(self):
+        """Update the log and info views based on the selected node."""
+        if not self.selected_node_name:
+            return
 
+        try:
+            log_view = self.app.query_one("#log-view-content", LogViewWidget) # type: ignore
+            log_view.filter_logs(self.selected_node_name)
+            info_view = self.app.query_one("#info-view-content", InfoViewWidget) # type: ignore
+            info_view.update_info(self.selected_node_name)
+        except Exception as e:
+            print(f"Error updating log and info views: {e}")
 
 class LogViewWidget(Container):
     """A widget to display ROS logs from /rosout."""
@@ -298,11 +305,11 @@ class LogViewWidget(Container):
 
     def _level_to_char(self, level: int) -> str:
         """Convert log level integer to a single character representation."""
-        if level == Log.DEBUG: return "D"
-        if level == Log.INFO: return "I"
-        if level == Log.WARN: return "W"
-        if level == Log.ERROR: return "E"
-        if level == Log.FATAL: return "F"
+        if level == Log.DEBUG[0]: return "DEBUG"
+        if level == Log.INFO[0]: return "INFO"
+        if level == Log.WARN[0]: return "WARN"
+        if level == Log.ERROR[0]: return "ERROR"
+        if level == Log.FATAL[0]: return "FATAL"
         return "?"
 
 
@@ -320,6 +327,7 @@ class InfoViewWidget(Container):
         self.ros_node = ros_node
         # Replace Static with RichLog
         self.info_log = RichLog(wrap=True, highlight=True, markup=True, id="info-log", max_lines=1000) # Added max_lines
+        self.info_dict = {} # Store node info
 
     def compose(self) -> ComposeResult:
         # Yield the RichLog widget
@@ -327,6 +335,17 @@ class InfoViewWidget(Container):
 
     def update_info(self, node_name: str):
         """Update the displayed node information using `ros2 node info` output."""
+        
+        if node_name in self.info_dict:
+            # If the info is already cached, use it
+            formatted_lines = self.info_dict[node_name]
+            self.info_log.clear()
+            for line in formatted_lines:
+                self.info_log.write(line)
+            return
+        # If not cached, fetch the info using subprocess
+        print(f"InfoViewWidget.update_info: Fetching info for node: {node_name}")
+        
         try:
             command = ["ros2", "node", "info", "/" + node_name]
             result = subprocess.run(command, capture_output=True, text=True, check=True)
@@ -366,17 +385,18 @@ class InfoViewWidget(Container):
                     sections[current_section].append(line)
 
             formatted_lines = []
-            for section_name, line_list in sections.items():   
+            for section_name, line_list in sections.items():
                 formatted_lines.append("") # Separator line
                 if (section_name == "Subscribers" or section_name == "Publishers"):
                     for stripped_line in line_list: 
                         if stripped_line.startswith("/"):
                             topic, *rest = stripped_line.split(":", 1)
-                            topic_display = topic  # マークアップとして表示したいのでescapeしない
+                            topic_display = topic
                             topic_arg = topic.replace("'", "\\'").replace('"', '\\"')
                             rest_of_line = escape_markup(rest[0]) if rest else ""
                             formatted_lines.append(
-                                f"[blue][@click=app.handle_topic_click('{topic_arg}')]{topic_display}[/][/blue]:{rest_of_line}"
+                                f"[blue][@click=app.handle_topic_click('{topic_arg}')]{topic_display}[/][/blue]:"
+                                f"[green][@click=app.handle_message_click('{rest_of_line}')]{rest_of_line}[/][/green]"
                             )
                         else:
                             formatted_lines.append(f"[bold]{escape_markup(stripped_line)}[/bold]")              
@@ -391,7 +411,15 @@ class InfoViewWidget(Container):
             self.info_log.clear()
             for line in formatted_lines:
                 self.info_log.write(line)
+            # Cache the info for future use
+            self.info_dict[node_name] = formatted_lines
 
+        except FileNotFoundError:
+            self.info_log.clear()
+            self.info_log.write("[red]ros2 command not found. Please ensure ROS 2 is installed and sourced.[/]")
+        except subprocess.TimeoutExpired:
+            self.info_log.clear()
+            self.info_log.write("[red]Timeout expired while fetching node info.[/]")
 
         except subprocess.CalledProcessError as e:
             self.info_log.clear() # Clear before writing error

@@ -1,4 +1,3 @@
-import asyncio
 import threading
 
 import rclpy
@@ -37,26 +36,9 @@ class RosTuiApp(App):
         self.ros_node = ros_node
         self.restart_config = restart_config
 
-    async def _preload_node_list(self):
-        """Helper to preload the node list."""
-        try:
-            node_names_and_namespaces = await asyncio.to_thread(self.ros_node.get_node_names_and_namespaces)
-            print("Preloaded node list:", node_names_and_namespaces)
-        except Exception as e:
-            print("Error preloading node list:", e)
-
-    async def _preload_logs(self):
-        """Helper to preload logs."""
-        try:
-            await asyncio.sleep(0.001)  # Simulate log preloading
-            print("Preloaded logs.")
-        except Exception as e:
-            print("Error preloading logs:", e)
-
-    async def on_mount(self) -> None:
+    def on_mount(self) -> None:
         """Called when app is mounted. Perform async setup here."""
-        asyncio.create_task(self._preload_node_list())
-        asyncio.create_task(self._preload_logs())
+        pass
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""

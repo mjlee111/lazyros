@@ -90,7 +90,6 @@ class MessageModal(ModalScreen):
     #message-modal-title { /* Unique ID for title */
         margin: 1 0;
         text-align: center;
-        font-weight: bold;
     }
     
     #message-modal-content { /* Unique ID for content */
@@ -112,7 +111,7 @@ class MessageModal(ModalScreen):
 
     def __init__(self, message_type: str, **kwargs):
         super().__init__(**kwargs)
-        self.message_type = message_type
+        self.message_type = message_type.strip()
         self.message_info = self.get_message_info()
 
     def get_message_info(self) -> str:
@@ -133,7 +132,7 @@ class MessageModal(ModalScreen):
     def compose(self) -> ComposeResult:
         """Compose the modal dialog."""
         yield Container(
-            Label(f"Message Definition: {escape_markup(self.message_type)}", id="message-modal-title"),
+            Label(f"Message Definition: {self.message_type}", id="message-modal-title"),
             Container( # Add a container for the content to enable scrolling
                 Label(self.message_info, id="message-modal-content"),
                 id="message-content-scroll-container" # ID for the scrollable content area
