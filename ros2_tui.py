@@ -17,7 +17,8 @@ from widgets.log_view_widget import LogViewWidget
 from widgets.info_view_widget import InfoViewWidget
 from widgets.topic_list_widget import TopicListWidget
 from widgets.parameter_list_widget import ParameterListWidget
-from modals import TopicInfoModal, MessageModal # Import MessageModal
+from modals.topic_info_modal import TopicInfoModal # Import TopicInfoModal
+from modals.message_modal import MessageModal # Import MessageModal
 from utils import ros_spin_thread, load_restart_config, signal_shutdown
 
 
