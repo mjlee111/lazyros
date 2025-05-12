@@ -1,5 +1,6 @@
 from rclpy.node import Node
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.containers import Container, VerticalScroll
 from textual.widgets import (
     Label,
@@ -7,6 +8,8 @@ from textual.widgets import (
     ListView,
 )
 from rich.markup import escape
+import subprocess
+from modals import TopicInfoModal # Import the modal
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
@@ -15,11 +18,16 @@ def escape_markup(text: str) -> str:
 class TopicListWidget(Container):
     """A widget to display the list of ROS topics."""
 
+    BINDINGS = [
+        Binding("i", "show_topic_info", "Info"),
+        Binding("e", "echo_topic", "Echo"),
+    ]
+
     def __init__(self, ros_node: Node, **kwargs) -> None:
         super().__init__(**kwargs)
         self.ros_node = ros_node
         self.topic_list_view = ListView()
-        self.previous_topic_names = set() # Store only names
+        self.previous_topic_data: dict[str, str] = {} # Stores {topic_name: first_type_str} or {"error": msg}
 
     def compose(self) -> ComposeResult:
         yield Label("ROS Topics:")
@@ -33,19 +41,24 @@ class TopicListWidget(Container):
         try:
             topic_names_and_types_list = self.ros_node.get_topic_names_and_types()
             
-            # We only need names for display and comparison now
-            current_topic_names = {name for name, _ in topic_names_and_types_list}
+            current_topic_data: dict[str, str] = {}
+            for name, types_list in topic_names_and_types_list:
+                if types_list: # Ensure there's at least one type
+                    current_topic_data[name] = types_list[0] 
+                else:
+                    current_topic_data[name] = "" # Placeholder if no types (should be rare)
 
-            if current_topic_names != self.previous_topic_names:
+            if current_topic_data != self.previous_topic_data:
                 current_index = self.topic_list_view.index
                 self.topic_list_view.clear()
 
                 items = []
-                if not current_topic_names:
+                if not current_topic_data:
                     items.append(ListItem(Label("[No topics found]")))
                 else:
-                    for name in sorted(list(current_topic_names)):
-                        display_text = escape_markup(name) # Show only topic name
+                    # Display only names, sorted
+                    for name in sorted(current_topic_data.keys()):
+                        display_text = escape_markup(name) 
                         items.append(ListItem(Label(display_text, shrink=False)))
 
                 self.topic_list_view.extend(items)
@@ -54,19 +67,90 @@ class TopicListWidget(Container):
                     self.topic_list_view.index = current_index
                 elif len(items) > 0:
                     self.topic_list_view.index = 0
-
-                self.previous_topic_names = current_topic_names
+                
+                self.previous_topic_data = current_topic_data
 
         except Exception as e:
             error_message = f"Error fetching topics: {e}"
-            # Avoid flooding with the same error if it persists
-            # Check against a simple error flag in previous_topic_names if it's just a set of names
-            # For simplicity, let's just check if the set itself is an error message placeholder
-            is_previous_error = isinstance(self.previous_topic_names, dict) and self.previous_topic_names.get("error")
-            if not is_previous_error or (is_previous_error and self.previous_topic_names.get("error") != error_message) :
+            if self.previous_topic_data.get("error") != error_message:
                 self.topic_list_view.clear()
                 self.topic_list_view.append(ListItem(Label(error_message)))
-                # Store error differently if previous_topic_names is now a set
-                # For simplicity, we can revert to a dict for error state or just display error once.
-                # Let's assume if an error occurs, previous_topic_names becomes a marker.
-                self.previous_topic_names = {"error": error_message} # Use a dict to store error
+                self.previous_topic_data = {"error": error_message}
+
+    def action_show_topic_info(self) -> None:
+        """Show detailed information about the selected topic in a modal."""
+        if self.topic_list_view.index is None:
+            return
+        
+        # Check if previous_topic_data contains an error
+        if self.previous_topic_data.get("error") is not None:
+            self.app.bell()
+            return
+
+        # Ensure previous_topic_data is not empty and is a dict of topics
+        if not self.previous_topic_data or "error" in self.previous_topic_data:
+             self.app.bell()
+             return
+
+        sorted_names = sorted(list(self.previous_topic_data.keys()))
+        if not (0 <= self.topic_list_view.index < len(sorted_names)):
+            return
+
+        selected_topic_name = sorted_names[self.topic_list_view.index]
+        if selected_topic_name == "[No topics found]" or not selected_topic_name.startswith("/"):
+            # Add a message to the app's log or a status bar if available
+            self.app.bell() # Simple feedback
+            return
+        
+        self.app.push_screen(TopicInfoModal(topic_name=selected_topic_name))
+
+    def action_echo_topic(self) -> None:
+        """Echo the selected topic in a new terminal window."""
+        if self.topic_list_view.index is None:
+            return
+
+        if self.previous_topic_data.get("error") is not None:
+            self.app.bell()
+            return
+        
+        if not self.previous_topic_data or "error" in self.previous_topic_data:
+            self.app.bell()
+            return
+
+        sorted_names = sorted(list(self.previous_topic_data.keys()))
+        if not (0 <= self.topic_list_view.index < len(sorted_names)):
+            return
+            
+        selected_topic_name = sorted_names[self.topic_list_view.index]
+        if selected_topic_name == "[No topics found]" or not selected_topic_name.startswith("/"):
+            self.app.bell()
+            return
+
+        selected_topic_type = self.previous_topic_data.get(selected_topic_name)
+        if not selected_topic_type: # Should have a type, even if empty string from update_list
+            print(f"Error: No type found for topic {selected_topic_name}")
+            self.app.bell()
+            return
+
+        try:
+            title = f"Topic Echo: {selected_topic_name}"
+            # Include message type in the echo command
+            echo_command = f"ros2 topic echo {selected_topic_name} {selected_topic_type}"
+            full_bash_command = f"{echo_command}; echo 'Press Ctrl+C to stop echoing. This terminal will remain open.'; exec bash"
+            
+            terminal_command = [
+                "gnome-terminal",
+                "--title", title,
+                "--", "bash", "-c", full_bash_command
+            ]
+            subprocess.Popen(terminal_command)
+        except FileNotFoundError:
+            # Fallback or error message if gnome-terminal is not found
+            # This could be a notification in the TUI
+            print("Error: gnome-terminal not found. Cannot echo topic.")
+            self.app.bell() 
+            # Consider a more user-facing error message if self.app.notify exists
+            # self.app.notify("gnome-terminal not found. Please install it to use topic echo.", severity="error", timeout=5)
+        except Exception as e:
+            print(f"Error echoing topic {selected_topic_name}: {e}")
+            self.app.bell()

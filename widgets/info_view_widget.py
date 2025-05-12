@@ -35,10 +35,6 @@ class InfoViewWidget(Container):
         
         # Use node_name directly as key for caching, assuming it's consistent
         if node_name in self.info_dict:
-            formatted_lines = self.info_dict[node_name]
-            self.info_log.clear()
-            for line in formatted_lines:
-                self.info_log.write(line)
             return
         
         print(f"InfoViewWidget.update_info: Fetching info for node: {node_name}")
@@ -106,6 +102,7 @@ class InfoViewWidget(Container):
             for fl_line in formatted_lines:
                 self.info_log.write(fl_line)
             self.info_dict[node_name] = formatted_lines
+            #self.info_log.scroll_home() # Scroll to top
 
         except FileNotFoundError:
             self.info_log.clear()
