@@ -1,8 +1,4 @@
 /* Basic screen layout */
-Screen {
-    layout: vertical;
-}
-
 /* Container for the two panes */
 Horizontal {
     height: 1fr;
@@ -11,11 +7,8 @@ Horizontal {
 /* Common frame styling */
 #left-frame, #right-frame {
     width: 1fr; /* Share width equally initially */
-    border: round white; /* Simple rounded border */
-    margin: 1; /* Add margin around frames */
-    padding: 1; /* Add padding inside frames */
+    padding: 0 1; /* Add padding inside frames */
     /* Use vertical layout for title and content */
-    layout: vertical;
 }
 
 /* Specific width for left frame */
@@ -30,10 +23,8 @@ Horizontal {
 
 /* Style for the frame titles */
 .frame-title {
-    text-style: bold;
     text-align: center; /* Center text within the Static widget */
     width: 100%; /* Take full width of the frame */
-    margin-bottom: 1; /* Space below title */
 }
 
 /* Style for the content area within the frames */
@@ -56,4 +47,11 @@ Horizontal {
 /* Style the RichLog within the log view */
 #log-view-content RichLog {
     border: none; /* Ensure no extra borders */
+}
+
+/* Style for the containers around each list and its title */
+.list-container {
+    border:round white; /* Thin white border */
+    margin-bottom: 1; /* Add some space between the list containers */
+    height: 1fr; /* Allow containers to share vertical space */
 }

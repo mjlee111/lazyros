@@ -4,7 +4,7 @@ import rclpy
 from rclpy.node import Node
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, Horizontal
+from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import (
     Footer,
     Header,
@@ -12,7 +12,11 @@ from textual.widgets import (
     TabbedContent,
 )
 
-from widgets import NodeListWidget, LogViewWidget, InfoViewWidget
+from widgets.node_list_widget import NodeListWidget
+from widgets.log_view_widget import LogViewWidget
+from widgets.info_view_widget import InfoViewWidget
+from widgets.topic_list_widget import TopicListWidget
+from widgets.parameter_list_widget import ParameterListWidget
 from modals import TopicInfoModal, MessageModal # Import MessageModal
 from utils import ros_spin_thread, load_restart_config, signal_shutdown
 
@@ -48,8 +52,17 @@ class RosTuiApp(App):
         with Horizontal():
             with Container(id="left-frame", classes="left-pane"):
                 print("Adding left pane...")
-                yield Static("Nodes", classes="frame-title")
-                yield NodeListWidget(self.ros_node, self.restart_config, id="node-list-content")
+                with Vertical():
+                    with Container(classes="list-container"):
+                        yield Static("Nodes", classes="frame-title")
+                        yield NodeListWidget(self.ros_node, self.restart_config, id="node-list-content")
+                    with Container(classes="list-container"):
+                        yield Static("Topics", classes="frame-title")
+                        yield TopicListWidget(self.ros_node, id="topic-list-content")
+                    with Container(classes="list-container"):
+                        yield Static("Parameters", classes="frame-title")
+                        yield ParameterListWidget(self.ros_node, id="parameter-list-content")
+
 
             with Container(id="right-frame", classes="right-pane"):
                 print("Adding right pane...")
