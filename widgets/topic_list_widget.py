@@ -9,7 +9,7 @@ from textual.widgets import (
 )
 from rich.markup import escape
 import subprocess
-from modals import TopicInfoModal # Import the modal
+from modals import TopicInfoModal, TopicEchoModal # Import the modals
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
@@ -105,7 +105,7 @@ class TopicListWidget(Container):
         self.app.push_screen(TopicInfoModal(topic_name=selected_topic_name))
 
     def action_echo_topic(self) -> None:
-        """Echo the selected topic in a new terminal window."""
+        """Echo the selected topic in a modal dialog."""
         if self.topic_list_view.index is None:
             return
 
@@ -127,30 +127,10 @@ class TopicListWidget(Container):
             return
 
         selected_topic_type = self.previous_topic_data.get(selected_topic_name)
-        if not selected_topic_type: # Should have a type, even if empty string from update_list
-            print(f"Error: No type found for topic {selected_topic_name}")
+        if selected_topic_type is None: # Check for None explicitly
+            # self.app.notify(f"Error: No type found for topic {selected_topic_name}", severity="error", timeout=3)
             self.app.bell()
             return
-
-        try:
-            title = f"Topic Echo: {selected_topic_name}"
-            # Include message type in the echo command
-            echo_command = f"ros2 topic echo {selected_topic_name} {selected_topic_type}"
-            full_bash_command = f"{echo_command}; echo 'Press Ctrl+C to stop echoing. This terminal will remain open.'; exec bash"
-            
-            terminal_command = [
-                "gnome-terminal",
-                "--title", title,
-                "--", "bash", "-c", full_bash_command
-            ]
-            subprocess.Popen(terminal_command)
-        except FileNotFoundError:
-            # Fallback or error message if gnome-terminal is not found
-            # This could be a notification in the TUI
-            print("Error: gnome-terminal not found. Cannot echo topic.")
-            self.app.bell() 
-            # Consider a more user-facing error message if self.app.notify exists
-            # self.app.notify("gnome-terminal not found. Please install it to use topic echo.", severity="error", timeout=5)
-        except Exception as e:
-            print(f"Error echoing topic {selected_topic_name}: {e}")
-            self.app.bell()
+        
+        # Even if type is empty string, pass it to modal. Modal will handle it.
+        self.app.push_screen(TopicEchoModal(topic_name=selected_topic_name, topic_type=selected_topic_type))
