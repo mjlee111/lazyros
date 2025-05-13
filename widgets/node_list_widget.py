@@ -14,13 +14,24 @@ from textual.widgets import (
     ListView,
 )
 from rich.markup import escape # Import escape function
+from rich.text import Text as RichText # Import RichText for combining elements
 
 from utils.ignore_parser import IgnoreParser # Import IgnoreParser
+from dataclasses import dataclass
 
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
     return escape(text)
+
+@dataclass
+class NodeInfo:
+    """A data class to hold information about a ROS node."""
+    name: str
+    namespace: str
+    pid: int
+    command: str
+    status: str
 
 class NodeListWidget(Container):
     """A widget to display the list of ROS nodes."""
@@ -40,12 +51,11 @@ class NodeListWidget(Container):
 
     def compose(self) -> ComposeResult:
         yield Label("ROS Nodes:")
-        with HorizontalScroll():
-            yield self.node_list_view
+        yield self.node_list_view
 
     def on_mount(self) -> None:
-        self.set_interval(1, self.update_node_list)
-        self.set_interval(0.1, self.update_log_and_info)
+        self.set_interval(0.1, self.update_node_list)
+        self.set_interval(1, self.update_log_and_info)
         self.node_list_view.focus()
 
     def update_node_list(self) -> None:
@@ -69,7 +79,23 @@ class NodeListWidget(Container):
                 sorted_names = sorted(list(current_node_names))
                 if sorted_names:
                     for full_name in sorted_names:
-                        nodes.append(ListItem(Label(full_name)))
+                        # Check node status using ros2 node info
+                        node_status = "red" # Default to red (not running)
+                        try:
+                            # Use the node name without the leading slash for ros2 node info
+                            info_command = f"ros2 node info {full_name}"
+                            result = subprocess.run(info_command, shell=True, capture_output=True, text=True, timeout=0.5) # Added timeout
+                            if result.returncode == 0:
+                                node_status = "green" # Node is running
+                        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
+                            # Node is not running or command failed
+                            node_status = "red"
+                            # print(f"Error checking status for {full_name}: {e}") # Optional: for debugging
+
+                        status_indicator = RichText("●", style=f"bold {node_status}")
+                        node_label = RichText(full_name)
+                        combined_label = RichText.assemble(node_label, status_indicator)
+                        nodes.append(ListItem(Label(combined_label)))
                 else:
                      nodes.append(ListItem(Label("[No nodes found]")))
                 self.node_list_view.extend(nodes)
@@ -221,7 +247,7 @@ class NodeListWidget(Container):
             #  - LogViewWidget needs "/talker" (if msg.name is "/talker")
             
             info_node_name = self.selected_node_name[1:] if self.selected_node_name.startswith('/') else self.selected_node_name
-            log_filter_name = self.selected_node_name # Full path for log filtering
+            log_filter_name = self.selected_node_name.strip("●") # Full path for log filtering
 
             log_view = self.app.query_one("#log-view-content") # type: ignore
             log_view.filter_logs(log_filter_name.strip("/")) # Pass the full path for filtering
