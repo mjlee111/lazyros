@@ -1,7 +1,7 @@
 from rclpy.node import Node
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, VerticalScroll
+from textual.containers import Container, VerticalScroll, ScrollableContainer
 from textual.widgets import (
     Label,
     ListItem,
@@ -13,6 +13,8 @@ from rich.markup import escape
 import subprocess
 from modals.topic_info_modal import TopicInfoModal # Import TopicInfoModal
 from modals.topic_echo_modal import TopicEchoModal # Import TopicEchoModal
+
+from utils.ignore_parser import IgnoreParser # Import IgnoreParser
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
@@ -27,21 +29,39 @@ class TopicListWidget(Container):
         Binding("/", "start_search", "Search"),
         Binding("escape", "clear_search", "Clear Search", show=False),
     ]
+    
+    DEFAULT_CSS = """
+    TopicListWidget {
+        overflow: hidden;
+    }
 
-    def __init__(self, ros_node: Node, **kwargs) -> None:
+    #scroll-area {
+        overflow-x: auto;
+        overflow-y: auto;
+        height: 1fr;
+    }
+
+    ListView {
+        width: auto;
+        min-width: 100%;
+    }
+    """
+
+    def __init__(self, ros_node: Node, **kwargs):
         super().__init__(**kwargs)
         self.ros_node = ros_node
         self.topic_list_view = ListView()
         self.search_input = Input(placeholder="Search topics...")
-        self.search_input.display = False # Hidden by default
+        self.search_input.display = False
         self.is_searching = False
-        self.previous_topic_data: dict[str, str] = {} 
-        self.current_search_term: str = "" # Store current search term to avoid redundant updates
+        self.previous_topic_data: dict[str, str] = {}
+        self.current_search_term: str = ""
+        self.ignore_parser = IgnoreParser('config/display_ignore.yaml')
 
     def compose(self) -> ComposeResult:
         yield Label("ROS Topics:")
         yield self.search_input
-        yield VerticalScroll(self.topic_list_view)
+        yield ScrollableContainer(self.topic_list_view, id="scroll-area")
 
     def on_mount(self) -> None:
         self._fetch_ros_topics() # Initial fetch
@@ -131,8 +151,16 @@ class TopicListWidget(Container):
             search_term = self.current_search_term
 
             # Use self.previous_topic_data as the source of truth for all topics
-            all_topic_names_sorted = sorted(list(self.previous_topic_data.keys()))
+            all_topic_names = list(self.previous_topic_data.keys())
             
+            # Filter topics based on the ignore list
+            filtered_topic_names = [
+                name for name in all_topic_names
+                if not self.ignore_parser.should_ignore(name, 'topic')
+            ]
+
+            all_topic_names_sorted = sorted(filtered_topic_names)
+
             display_names = all_topic_names_sorted
             if search_term: # Filter if search_term is active
                 display_names = [name for name in all_topic_names_sorted if search_term in name.lower()]

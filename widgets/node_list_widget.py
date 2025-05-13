@@ -7,13 +7,15 @@ import rclpy # Not used directly by NodeListWidget but often useful
 from rclpy.node import Node
 from textual.app import App, ComposeResult # App might not be needed directly
 from textual.binding import Binding
-from textual.containers import Container, VerticalScroll
+from textual.containers import Container, VerticalScroll, ScrollableContainer
 from textual.widgets import (
     Label,
     ListItem,
     ListView,
 )
 from rich.markup import escape # Import escape function
+
+from utils.ignore_parser import IgnoreParser # Import IgnoreParser
 
 # Assuming LogViewWidget and InfoViewWidget will be in their own files
 # and imported if direct interaction is needed (currently interaction is via app.query_one)
@@ -31,7 +33,7 @@ class NodeListWidget(Container):
         Binding("r", "restart_node", "Restart Node"),
     ]
 
-    def __init__(self, ros_node: Node, restart_config=None, **kwargs) -> None:
+    def __init__(self, ros_node: Node, restart_config=None, ignore_file_path='config/display_ignore.yaml', **kwargs) -> None:
         super().__init__(**kwargs)
         self.ros_node = ros_node
         self.node_list_view = ListView()
@@ -39,10 +41,11 @@ class NodeListWidget(Container):
         self.restart_config = restart_config or {}
         print("NodeListWidget.__init__: Restart config:", self.restart_config)
         self.selected_node_name = None
+        self.ignore_parser = IgnoreParser(ignore_file_path) # Instantiate IgnoreParser
 
     def compose(self) -> ComposeResult:
         yield Label("ROS Nodes:")
-        yield VerticalScroll(self.node_list_view)
+        yield ScrollableContainer(self.node_list_view)
 
     def on_mount(self) -> None:
         self.set_interval(1, self.update_node_list)
@@ -59,13 +62,15 @@ class NodeListWidget(Container):
                     if name.startswith("_") or name.startswith("launch_ros"):
                         continue
                     full_name = f"{namespace}/{name}" if namespace != "/" else f"/{name}"
-                    current_node_names.add(full_name)
+                    # Filter nodes based on the ignore list
+                    if not self.ignore_parser.should_ignore(full_name, 'node'):
+                        current_node_names.add(full_name)
 
             if current_node_names != self.previous_node_names:
                 current_index = self.node_list_view.index
                 self.node_list_view.clear()
                 nodes = []
-                sorted_names = sorted(list(current_node_names)) 
+                sorted_names = sorted(list(current_node_names))
                 if sorted_names:
                     for full_name in sorted_names:
                         nodes.append(ListItem(Label(full_name)))

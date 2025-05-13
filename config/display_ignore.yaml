@@ -1,0 +1,12 @@
+node:
+  /move_group*
+  *[0-9]
+topic:
+  # Add topic patterns here if needed
+parameter:
+  /move_group*
+  /moveit*
+  /servo_node*
+  /rosbridge*
+  /robot_state_publisher*
+  /rosapi

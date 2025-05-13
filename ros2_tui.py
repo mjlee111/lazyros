@@ -19,7 +19,7 @@ from widgets.topic_list_widget import TopicListWidget
 from widgets.parameter_list_widget import ParameterListWidget
 from modals.topic_info_modal import TopicInfoModal # Import TopicInfoModal
 from modals.message_modal import MessageModal # Import MessageModal
-from utils import ros_spin_thread, load_restart_config, signal_shutdown
+from utils.utility import ros_spin_thread, load_restart_config, signal_shutdown
 
 
 class RosTuiApp(App):
