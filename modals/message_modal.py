@@ -2,7 +2,7 @@ import subprocess
 import threading
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Container
+from textual.containers import Container, VerticalScroll
 from textual.widgets import Label, Log
 from textual.screen import ModalScreen
 from rich.markup import escape as escape_markup
@@ -18,38 +18,33 @@ class MessageModal(ModalScreen[None]):
     }
 
     #message-modal-container { /* Unique ID for this modal's container */
-        width: 70%; /* Potentially wider for message definitions */
-        height: 60%; /* Potentially taller */
+        width: 40%;
+        height: 30%;
         border: round white;
         background: $background;
-        /* align: center middle; Let content flow from top */
-        /* overflow-y: auto; /* Container itself doesn't scroll, content does */
+        overflow-y: auto;
     }
 
     #message-modal-title { /* Unique ID for title */
         dock: top;
         width: 100%;
-        padding: 1;
         text-align: center;
-    }
-    
-    #message-content-scroll-container { /* ID for the scrollable content area */
-        width: 100%;
-        height: 1fr; /* Fill available space */
-        overflow-y: auto; /* Scroll content if it overflows */
         padding: 1;
+        background: $primary-background-darken-1;
     }
 
-    #message-modal-content { /* Unique ID for content */
+    #message-modal-content {
         width: 100%;
-        height: auto; /* Let content determine height */
+        border: round $primary;
+        margin: 0 1;
+        overflow-y: auto; /* Enable scrolling for content */
     }
 
-    #message-modal-instruction { /* Unique ID for instruction */
+    #message-modal-instruction {
         dock: bottom;
         width: 100%;
-        padding: 1;
         text-align: center;
+        padding: 1;
     }
     """
 
@@ -82,11 +77,10 @@ class MessageModal(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         """Compose the modal dialog."""
         yield Container(
-            Label(f"Message Definition: {self.message_type}", id="message-modal-title"),
-            Container( # Add a container for the content to enable scrolling
+            Label(f"ROS Message: {self.message_type}", id="message-modal-title"),
+            VerticalScroll(  # Ensure the content is scrollable
                 Label(self.message_info, id="message-modal-content"),
-                id="message-content-scroll-container"
-            ), 
+            ),
             Label("Press 'q' to quit.", id="message-modal-instruction"),
             id="message-modal-container",
         )

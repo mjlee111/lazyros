@@ -17,7 +17,7 @@ def ros_spin_thread(node: Node):
         print("ROS spin thread exiting (node logger not available).")
 
 
-def load_restart_config(config_path="restart_config.yaml"):
+def load_restart_config(config_path="../config/restart_config.yaml"):
     """Load the restart configuration from a YAML file."""
     try:
         if not os.path.exists(config_path):

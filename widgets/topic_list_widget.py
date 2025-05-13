@@ -29,7 +29,7 @@ class TopicListWidget(Container):
         Binding("/", "start_search", "Search"),
         Binding("escape", "clear_search", "Clear Search", show=False),
     ]
-    
+
     DEFAULT_CSS = """
     TopicListWidget {
         overflow: hidden;
@@ -39,11 +39,6 @@ class TopicListWidget(Container):
         overflow-x: auto;
         overflow-y: auto;
         height: 1fr;
-    }
-
-    ListView {
-        width: auto;
-        min-width: 100%;
     }
     """
 
@@ -61,7 +56,7 @@ class TopicListWidget(Container):
     def compose(self) -> ComposeResult:
         yield Label("ROS Topics:")
         yield self.search_input
-        yield ScrollableContainer(self.topic_list_view, id="scroll-area")
+        yield self.topic_list_view
 
     def on_mount(self) -> None:
         self._fetch_ros_topics() # Initial fetch
@@ -91,7 +86,6 @@ class TopicListWidget(Container):
         elif event.key == "escape" and self.is_searching: # Fallback if focus isn't on input but search is active
             self.action_clear_search()
             event.stop()
-
 
     def action_start_search(self) -> None:
         """Activate search mode."""

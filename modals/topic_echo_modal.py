@@ -13,16 +13,15 @@ class TopicEchoModal(ModalScreen[None]):
 
     CSS = """
     TopicEchoModal {
-        align: center middle; /* Center the modal itself on screen */
+        align: center middle;
         layer: modal;
     }
 
     #echo-modal-container {
-        width: 80%; 
-        height: 70%; 
+        width: 40%; 
+        height: 30%; 
         border: round white;
         background: $background;
-        /* Children are docked or fill space, so no align needed here */
     }
 
     #echo-modal-title {
@@ -34,12 +33,10 @@ class TopicEchoModal(ModalScreen[None]):
     }
 
     #echo-log {
-        /* The Log widget will fill the remaining space in its parent container */
-        /* It's placed directly in echo-modal-container, after title, before instruction */
         width: 100%;
-        height: 1fr; /* Fill available vertical space */
+        height: 1fr;
         border: round $primary;
-        margin: 0 1; /* Margin for horizontal spacing */
+        margin: 0 1;
     }
 
     #echo-modal-instruction {

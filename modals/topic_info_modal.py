@@ -14,25 +14,36 @@ class TopicInfoModal(ModalScreen[None]):
     CSS = """
     TopicInfoModal {
         align: center middle;
-        layer: modal; /* Ensure it appears above the main screen */
+        layer: modal;
     }
 
     #modal-container {
-        width: 30%;
-        height: 30%;
+        width: 40%;
+        height: auto;
         border: round white;
         background: $background;
-        align: center middle;
+    }
+    
+    #modal-title {
+        dock: top;
+        width: 100%;
+        text-align: center;
+        padding: 1;
+        background: $primary-background-darken-1;
     }
 
-    #modal-message {
-        margin: 1 0;
-        text-align: center;
+    #modal-content {
+        width: 100%;
+        height: auto;
+        border: round $primary;
+        margin: 0 1;
     }
 
     #modal-instruction {
-        margin-top: 1;
+        dock: bottom;
+        width: 100%;
         text-align: center;
+        padding: 1;
     }
     """
 
@@ -65,7 +76,7 @@ class TopicInfoModal(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         """Compose the modal dialog."""
         yield Container(
-            Label(f"Topic Information: {escape_markup(self.topic_name)}", id="modal-message"),
+            Label(f"Topic Information: {escape_markup(self.topic_name)}", id="modal-title"),
             Label(self.topic_info, id="modal-content"), # topic_info is already escaped
             Label("Press 'q' to quit.", id="modal-instruction"),
             id="modal-container",

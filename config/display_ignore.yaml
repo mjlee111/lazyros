@@ -1,6 +1,10 @@
 node:
   /move_group*
-  *[0-9]
+  /transform*
+  /controller_manager
+  /controller_stopper
+  /rosapi*
+  /servo*
 topic:
   # Add topic patterns here if needed
 parameter:

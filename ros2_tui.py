@@ -4,7 +4,7 @@ import rclpy
 from rclpy.node import Node
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, Horizontal, Vertical
+from textual.containers import Container, Horizontal, Vertical, ScrollableContainer
 from textual.widgets import (
     Footer,
     Header,
@@ -27,11 +27,10 @@ class RosTuiApp(App):
 
     BINDINGS = [
         ("d", "toggle_dark", "Toggle dark mode"),
-        ("q", "quit", "Quit"),
-        ("escape", "quit", "Quit"),
+        ("ctrl+q", "quit", "Quit"),
         ("r", "restart_node", "Restart Node"),
-        ("shift+left", "focus_left_pane", "Focus Left Pane"),
-        ("shift+right", "focus_right_pane", "Focus Right Pane"),
+        #("shift+left", "focus_left_pane", "Focus Left Pane"),
+        #("shift+right", "focus_right_pane", "Focus Right Pane"),
     ]
 
     CSS_PATH = "ros2_tui.css"
@@ -57,7 +56,7 @@ class RosTuiApp(App):
                     with Container(classes="list-container"):
                         yield Static("Nodes", classes="frame-title")
                         yield NodeListWidget(self.ros_node, self.restart_config, id="node-list-content")
-                    with Container(classes="list-container"):
+                    with ScrollableContainer(classes="list-container"):
                         yield Static("Topics", classes="frame-title")
                         yield TopicListWidget(self.ros_node, id="topic-list-content")
                     with Container(classes="list-container"):

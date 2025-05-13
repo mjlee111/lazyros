@@ -7,7 +7,7 @@ import rclpy # Not used directly by NodeListWidget but often useful
 from rclpy.node import Node
 from textual.app import App, ComposeResult # App might not be needed directly
 from textual.binding import Binding
-from textual.containers import Container, VerticalScroll, ScrollableContainer
+from textual.containers import Container, VerticalScroll, ScrollableContainer, HorizontalScroll
 from textual.widgets import (
     Label,
     ListItem,
@@ -17,10 +17,6 @@ from rich.markup import escape # Import escape function
 
 from utils.ignore_parser import IgnoreParser # Import IgnoreParser
 
-# Assuming LogViewWidget and InfoViewWidget will be in their own files
-# and imported if direct interaction is needed (currently interaction is via app.query_one)
-# from .log_view_widget import LogViewWidget # Example if needed
-# from .info_view_widget import InfoViewWidget # Example if needed
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
@@ -39,13 +35,13 @@ class NodeListWidget(Container):
         self.node_list_view = ListView()
         self.previous_node_names = set()
         self.restart_config = restart_config or {}
-        print("NodeListWidget.__init__: Restart config:", self.restart_config)
         self.selected_node_name = None
         self.ignore_parser = IgnoreParser(ignore_file_path) # Instantiate IgnoreParser
 
     def compose(self) -> ComposeResult:
         yield Label("ROS Nodes:")
-        yield ScrollableContainer(self.node_list_view)
+        with HorizontalScroll():
+            yield self.node_list_view
 
     def on_mount(self) -> None:
         self.set_interval(1, self.update_node_list)

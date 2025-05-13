@@ -26,24 +26,19 @@ class LogViewWidget(Container):
             Log.FATAL: "[bold magenta]",
         }
         self.logs_by_node: dict[str, list[str]] = {}
-        self.filtered_node: str | None = None # This should be the full path like /node_name
+        self.filtered_node: str | None = None 
 
     def compose(self) -> ComposeResult:
         yield self.rich_log
 
     def on_mount(self) -> None:
         try:
-            self.rich_log.write("[bold green]LogViewWidget mounted[/]")
-            # self.rich_log.write("[yellow]Testing logging system[/]") # Optional: remove test messages
-            # self.rich_log.write("[red]This is a test error message[/]") # Optional: remove test messages
-            
             self.ros_node.create_subscription(
                 Log,
                 '/rosout',
                 self.log_callback,
                 10 
             )
-            self.rich_log.write("[dim green]Log subscriber initialized.[/]")
         except Exception as e:
              self.rich_log.write(f"[bold red]Error creating /rosout subscriber: {e}[/]")
 
@@ -54,11 +49,8 @@ class LogViewWidget(Container):
             level_style = self.log_level_styles.get(msg.level, "[dim white]")
             level_char = self._level_to_char(msg.level)
             
-            # Ensure msg.msg is a string before replacing.
-            # msg.msg might contain characters that conflict with Rich markup.
             escaped_msg_content = str(msg.msg).replace("[", "\\[")
 
-            # msg.name is the full path of the node, e.g., /talker
             formatted_log = (
                 f"{level_style}{time_str} "
                 f"[{level_char}] "
@@ -100,9 +92,9 @@ class LogViewWidget(Container):
             self.rich_log.write(f"[yellow]No logs found for node: {node_name}[/]")
 
     def _level_to_char(self, level: int) -> str:
-        if level == Log.DEBUG: return "DEBUG" # Compare with Log.DEBUG directly
-        if level == Log.INFO: return "INFO"
-        if level == Log.WARN: return "WARN"
-        if level == Log.ERROR: return "ERROR"
-        if level == Log.FATAL: return "FATAL"
+        if level == Log.DEBUG[0]: return "DEBUG" # Compare with Log.DEBUG directly
+        if level == Log.INFO[0]: return "INFO"
+        if level == Log.WARN[0]: return "WARN"
+        if level == Log.ERROR[0]: return "ERROR"
+        if level == Log.FATAL[0]: return "FATAL"
         return "?"
