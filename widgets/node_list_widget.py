@@ -105,11 +105,11 @@ class NodeListWidget(Container):
                 status = self.launched_nodes[name].status
                 is_lifecycle = self.launched_nodes[name].is_lifecycle
                 if is_lifecycle:
-                    status_symbol = " Ⓛ "
+                    status_symbol = " Ⓛ　"
                 else:
-                    status_symbol = " Ⓝ"
+                    status_symbol = "    "
 
-                label = RichText.assemble(RichText(status_symbol, style=f"bold {status}"), "  ", RichText(name))
+                label = RichText.assemble(RichText("●", style=f"bold {status}"), RichText(status_symbol, style=f"bold yellow"), "  ", RichText("/"+name))
                 nodes.append(ListItem(Label(label)))
             self.node_list_view.extend(nodes)
 
@@ -141,6 +141,9 @@ class NodeListWidget(Container):
                 return
 
             self.selected_node_name = raw_name
+            i = raw_name.find("/") + 1
+            self.selected_node_name = raw_name[i:] if i != -1 else raw_name
+
             self._current_node = raw_name
 
             if self._highlight_task and not self._highlight_task.done():
@@ -161,8 +164,7 @@ class NodeListWidget(Container):
 
         async with self._highlight_lock:
             try:
-                info_node = self.selected_node_name.lstrip("/")
-                log_filter = self.selected_node_name.strip("●  ")
+                log_filter = self.selected_node_name
 
                 if self._last_log_filter == log_filter:
                     return
