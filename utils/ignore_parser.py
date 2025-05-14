@@ -24,19 +24,15 @@ class IgnoreParser:
                     if not line or line.startswith('#'):
                         continue # Skip empty lines and comments
                     
-                    print(f"Processing line: {line}")
-                    print(f"Current type: {current_type}")
-                    if 'node' in line:
+                    if line.startswith('node'):
                         current_type = 'node'
-                    elif 'topic' in line:
+                    elif line.startswith('topic'):
                         current_type = 'topic'
-                    elif 'parameter' in line:
+                    elif line.startswith('parameter'):
                         current_type = 'parameter'
                     elif current_type:
                         # Add any non-empty, non-comment line after a type header as a pattern
                         patterns[current_type].append(self._glob_to_regex(line))
-                        print(f"Added pattern for {current_type}: {line}")
-            print(f"Loaded ignore patterns: {patterns}")
         except Exception as e:
             print(f"Error parsing ignore file {self.ignore_file_path}: {e}. No filtering will be applied.")
         return patterns
@@ -61,3 +57,8 @@ class IgnoreParser:
             if re.fullmatch(pattern, item_name):
                 return True
         return False
+
+if __name__ == "__main__":
+    # Example usage
+    ignore_parser = IgnoreParser('../config/display_ignore.yaml')
+    print(ignore_parser.should_ignore('/move_group: move', 'parameter'))  # Adjust the test case as needed

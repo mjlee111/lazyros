@@ -87,7 +87,7 @@ class ParameterListWidget(Container):
         #self.parameter_list_view.focus() # Ensure list view can receive key presses
 
     def on_mount(self) -> None:
-        self.set_interval(1, self.trigger_update_list)
+        self.set_interval(3, self.trigger_update_list)
 
     def _parse_ros2_param_list_output(self, output: str) -> List[str]:
         parsed_params: List[str] = []

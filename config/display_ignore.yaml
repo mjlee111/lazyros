@@ -1,4 +1,5 @@
 node:
+  /launch_ros*
   /move_group*
   /transform*
   /controller_manager
@@ -8,9 +9,12 @@ node:
 topic:
   # Add topic patterns here if needed
 parameter:
+  /launch_ros*
+  /rosbridge*
+  /robot_state_publisher*
+  /rosapi*
   /move_group*
   /moveit*
   /servo_node*
-  /rosbridge*
-  /robot_state_publisher*
-  /rosapi
+  *use_sim_time
+  *qos_override*
