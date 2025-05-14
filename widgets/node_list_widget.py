@@ -182,7 +182,7 @@ class NodeListWidget(Container):
                 except Exception as e:
                     lifecycle_state = f"Unexpected error getting state: {str(e)}"
 
-        self.app.push_screen(NodeInfoModal(self.selected_node_name, node_data.is_lifecycle, lifecycle_state))
+        self.app.push_screen(NodeInfoModal(self.ros_node, self.selected_node_name, node_data.is_lifecycle))
 
     async def _delayed_update(self):
         await asyncio.sleep(self._highlight_delay)

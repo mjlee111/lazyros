@@ -1,8 +1,11 @@
+import rclpy
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, VerticalScroll
-from textual.widgets import Label
+from textual.widgets import Label, Button
 from textual.screen import ModalScreen
+
+from lifecycle_msgs.srv import GetAvailableTransitions, ChangeState, GetState
 
 class NodeInfoModal(ModalScreen[None]):
     """A modal screen to display node information."""
@@ -48,25 +51,110 @@ class NodeInfoModal(ModalScreen[None]):
         Binding("q", "dismiss", "Quit Modal")
     ]
 
-    def __init__(self, node_name: str, is_lifecycle: bool, lifecycle_state: str = None, **kwargs):
+    def __init__(self, node, node_name: str, is_lifecycle: bool, **kwargs):
         super().__init__(**kwargs)
+        self.node = node
         self.node_name = node_name
         self.is_lifecycle = is_lifecycle
-        self.lifecycle_state = lifecycle_state
 
-    def compose(self) -> ComposeResult:
-        """Compose the modal dialog."""
+        self.get_state_client = self.node.create_client(GetState, f"{self.node_name}/get_state")
+        self.get_transition_client = self.node.create_client(GetAvailableTransitions, f"{self.node_name}/get_available_transitions")
+        self.change_state_client = self.node.create_client(ChangeState, f"{self.node_name}/change_state")
+
+    def on_mount(self) -> None:
+        self.update_display()
+
+    def update_display(self) -> None:
+        self.node.get_logger().info(f"Updating display for node: {self.node_name}")
         title = f"Node Info: {self.node_name}"
+        content = ""
         if self.is_lifecycle:
-            content = f"Lifecycle State: {self.lifecycle_state}"
+            current_state = self.get_current_state()
+            content += f"Lifecycle State: {current_state}\n\n"
+            transitions = self.get_available_transitions()
+            if transitions:
+                content += "Available Transitions:\n"
+                # Remove existing transition buttons
+                for button in self.query(Button):
+                    if button.id and button.id.startswith("transition-button-"):
+                        button.remove()
+
+                for transition in transitions:
+                    content += f"- {transition.transition.label}\n"
+                    # Add a button for each transition
+                    self.query_one("#node-info-modal-content").mount(
+                        Button(transition.transition.label, id=f"transition-button-{transition.transition.id}")
+                    )
+            else:
+                content += "No available transitions."
         else:
             content = "This is not a lifecycle node."
 
+        self.query_one("#node-info-modal-title").update(title)
+        self.query_one("#node-info-modal-content").update(content)
+
+    def get_current_state(self):
+        while not self.get_state_client.wait_for_service(timeout_sec=1.0):
+            self.node.get_logger().info('get_state service not available, waiting again...')
+        request = GetState.Request()
+        future = self.get_state_client.call_async(request)
+        rclpy.spin_until_future_complete(self.node, future)
+        if future.result() is not None:
+            return future.result().current_state.label
+        else:
+            self.node.get_logger().error('Exception while calling get_state service: %r' % future.exception())
+            return "Unknown"
+
+    def get_available_transitions(self):
+        destinations = []
+        
+        while not self.get_transition_client.wait_for_service(timeout_sec=1.0):
+            self.node.get_logger().info('get_available_transitions service not available, waiting again...')
+        request = GetAvailableTransitions.Request()
+        future = self.get_transition_client.call_async(request)
+        rclpy.spin_until_future_complete(self.node, future)
+        if future.result() is not None:
+            return future.result().available_transitions 
+        else:
+            self.node.get_logger().error('Exception while calling get_available_transitions service: %r' % future.exception())
+            return []
+
+    def trigger_transition(self, transition_id: int):
+        while not self.change_state_client.wait_for_service(timeout_sec=1.0):
+            self.node.get_logger().info('change_state service not available, waiting again...')
+
+        request = ChangeState.Request()
+        request.transition.id = transition_id
+        future = self.change_state_client.call_async(request)
+        future.add_done_callback(self.transition_callback)
+
+    def transition_callback(self, future):
+        if future.result() is not None:
+            if future.result().success:
+                self.node.get_logger().info(f"Transition successful for {self.node_name}")
+                if self.app:
+                    self.app.call_from_thread(self.update_display) # Update display in the main thread
+            else:
+                self.node.get_logger().error(f"Transition failed for {self.node_name}")
+        else:
+            self.node.get_logger().error('Exception while calling service: %r' % future.exception())
+    
+    def compose(self) -> ComposeResult:
+        """Compose the modal dialog."""
         yield Container(
-            Label(title, id="node-info-modal-title"),
+            Label("", id="node-info-modal-title"),
             VerticalScroll(
-                Label(content, id="node-info-modal-content"),
+                Label("", id="node-info-modal-content"),
             ),
             Label("Press 'q' to quit.", id="node-info-modal-instruction"),
             id="node-info-modal-container",
         )
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id.startswith("transition-button-"):
+            transition_id = int(event.button.id.split("-")[-1])
+            self.trigger_transition(transition_id)
+
+    def on_dismiss(self) -> None:
+        self.node.destroy_node()
+        super().on_dismiss()
