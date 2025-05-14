@@ -139,7 +139,7 @@ class NodeListWidget(Container):
             child = selected_item.children[0]
             raw_name = str(child.renderable).strip()
 
-            if self._current_content == raw_name:
+            if self._current_node == raw_name:
                 return
 
             i = raw_name.find("/") + 1
@@ -157,38 +157,32 @@ class NodeListWidget(Container):
 
     def action_show_node_info(self) -> None:
         """Show a modal with information about the selected node."""
-        print("action_show_node_info called") # Debug print
-        if self.selected_node_name and not self.selected_node_name.startswith("["):
-            node_data = self.launched_nodes.get(self.selected_node_name.lstrip("/"))
-            if node_data:
-                lifecycle_state = None
-                if node_data.is_lifecycle:
-                    try:
-                        result = subprocess.run(
-                            ["ros2", "lifecycle", "get", node_data.name],
-                            capture_output=True,
-                            text=True,
-                            check=True
-                        )
-                        # Extract the state from the output, e.g., "Node /my_node is in state active."
-                        output_lines = result.stdout.splitlines()
-                        if len(output_lines) > 0:
-                            state_line = output_lines[-1] # Assuming the state is in the last line
-                            if "is in state" in state_line:
-                                lifecycle_state = state_line.split("is in state")[-1].strip().strip(".")
-                            else:
-                                lifecycle_state = "Could not determine state"
-                        else:
-                            lifecycle_state = "Could not determine state"
 
-                    except subprocess.CalledProcessError as e:
-                        lifecycle_state = f"Error getting lifecycle state: {e.stderr.strip()}"
-                    except FileNotFoundError:
-                        lifecycle_state = "Error: 'ros2' command not found."
-                    except Exception as e:
-                        lifecycle_state = f"Unexpected error getting state: {str(e)}"
+        node_data = self.launched_nodes[self.selected_node_name]
+        if node_data:
+            lifecycle_state = None
+            if node_data.is_lifecycle:
+                try:
+                    result = subprocess.run(
+                        ["ros2", "lifecycle", "get", "/"+self.selected_node_name],
+                        capture_output=True,
+                        text=True,
+                        check=True
+                    )
+                    # Extract the state from the output, e.g., "Node /my_node is in state active."
+                    output_lines = result.stdout.splitlines()
+                    if len(output_lines) > 0:
+                        lifecycle_state = output_lines[-1] 
+                    else:
+                        lifecycle_state = "Could not determine state"
+                except subprocess.CalledProcessError as e:
+                    lifecycle_state = f"Error getting lifecycle state: {e.stderr.strip()}"
+                except FileNotFoundError:
+                    lifecycle_state = "Error: 'ros2' command not found."
+                except Exception as e:
+                    lifecycle_state = f"Unexpected error getting state: {str(e)}"
 
-                self.app.push_screen(NodeInfoModal(self.selected_node_name, node_data.is_lifecycle, lifecycle_state))
+        self.app.push_screen(NodeInfoModal(self.selected_node_name, node_data.is_lifecycle, lifecycle_state))
 
     async def _delayed_update(self):
         await asyncio.sleep(self._highlight_delay)
