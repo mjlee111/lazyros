@@ -9,6 +9,7 @@ from rich.markup import escape
 from rich.text import Text as RichText
 
 from utils.ignore_parser import IgnoreParser
+from modals.node_info_modal import NodeInfoModal
 from dataclasses import dataclass
 
 def escape_markup(text: str) -> str:
@@ -23,6 +24,7 @@ class NodeData:
 class NodeListWidget(Container):
     BINDINGS = [
         Binding("r", "restart_node", "Restart Node"),
+        Binding("l", "show_node_info", "Node Info"),
     ]
 
     def __init__(self, ros_node: Node, restart_config=None, ignore_file_path='config/display_ignore.yaml', **kwargs) -> None:
@@ -122,7 +124,7 @@ class NodeListWidget(Container):
             self.node_list_view.clear()
             self.node_list_view.append(ListItem(Label(f"[red]Error fetching nodes: {e}[/]")))
 
-    def on_list_view_highlighted(self, event):  # type: ignore
+    def on_list_view_highlighted(self, event):
         try:
             index = self.node_list_view.index
             if index is None or index < 0 or index >= len(self.node_list_view.children):
@@ -137,10 +139,9 @@ class NodeListWidget(Container):
             child = selected_item.children[0]
             raw_name = str(child.renderable).strip()
 
-            if self._current_node == raw_name:
+            if self._current_content == raw_name:
                 return
 
-            self.selected_node_name = raw_name
             i = raw_name.find("/") + 1
             self.selected_node_name = raw_name[i:] if i != -1 else raw_name
 
@@ -154,6 +155,41 @@ class NodeListWidget(Container):
             print(f"[highlight error] {e}")
             self.selected_node_name = None
 
+    def action_show_node_info(self) -> None:
+        """Show a modal with information about the selected node."""
+        print("action_show_node_info called") # Debug print
+        if self.selected_node_name and not self.selected_node_name.startswith("["):
+            node_data = self.launched_nodes.get(self.selected_node_name.lstrip("/"))
+            if node_data:
+                lifecycle_state = None
+                if node_data.is_lifecycle:
+                    try:
+                        result = subprocess.run(
+                            ["ros2", "lifecycle", "get", node_data.name],
+                            capture_output=True,
+                            text=True,
+                            check=True
+                        )
+                        # Extract the state from the output, e.g., "Node /my_node is in state active."
+                        output_lines = result.stdout.splitlines()
+                        if len(output_lines) > 0:
+                            state_line = output_lines[-1] # Assuming the state is in the last line
+                            if "is in state" in state_line:
+                                lifecycle_state = state_line.split("is in state")[-1].strip().strip(".")
+                            else:
+                                lifecycle_state = "Could not determine state"
+                        else:
+                            lifecycle_state = "Could not determine state"
+
+                    except subprocess.CalledProcessError as e:
+                        lifecycle_state = f"Error getting lifecycle state: {e.stderr.strip()}"
+                    except FileNotFoundError:
+                        lifecycle_state = "Error: 'ros2' command not found."
+                    except Exception as e:
+                        lifecycle_state = f"Unexpected error getting state: {str(e)}"
+
+                self.app.push_screen(NodeInfoModal(self.selected_node_name, node_data.is_lifecycle, lifecycle_state))
+
     async def _delayed_update(self):
         await asyncio.sleep(self._highlight_delay)
         await self._update_log_and_info_async()
@@ -165,7 +201,6 @@ class NodeListWidget(Container):
         async with self._highlight_lock:
             try:
                 log_filter = self.selected_node_name
-
                 if self._last_log_filter == log_filter:
                     return
                 self._last_log_filter = log_filter
