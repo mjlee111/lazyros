@@ -1,12 +1,7 @@
-import os
 import subprocess
-from datetime import datetime
 import asyncio
-import time
-
-import rclpy
 from rclpy.node import Node
-from textual.app import App, ComposeResult
+from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container
 from textual.widgets import Label, ListItem, ListView
@@ -23,6 +18,7 @@ def escape_markup(text: str) -> str:
 class NodeData:
     name: str
     status: str
+    is_lifecycle: bool
 
 class NodeListWidget(Container):
     BINDINGS = [
@@ -76,7 +72,18 @@ class NodeListWidget(Container):
 
                 raw_name = node_name[1:] if node_name.startswith("/") else node_name
                 if raw_name not in self.launched_nodes:
-                    self.launched_nodes[raw_name] = NodeData(name=raw_name, status="green")
+                    
+                    # Check if the node is a lifecycle node
+                    is_lifecycle = False
+                    cmd = ["ros2", "node", "info", node_name]
+                    try:
+                        info_result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+                        if "lifecycle_msgs" in info_result.stdout:
+                            is_lifecycle = True
+                    except subprocess.CalledProcessError:
+                        pass
+                    
+                    self.launched_nodes[raw_name] = NodeData(name=raw_name, status="green", is_lifecycle=is_lifecycle)
                     need_update = True
                 elif self.launched_nodes[raw_name].status != "green":
                     self.launched_nodes[raw_name].status = "green"
@@ -96,7 +103,13 @@ class NodeListWidget(Container):
             self.node_list_view.clear()
             for name in sorted_names:
                 status = self.launched_nodes[name].status
-                label = RichText.assemble(RichText("●", style=f"bold {status}"), "  ", RichText(name))
+                is_lifecycle = self.launched_nodes[name].is_lifecycle
+                if is_lifecycle:
+                    status_symbol = " Ⓛ "
+                else:
+                    status_symbol = " Ⓝ"
+
+                label = RichText.assemble(RichText(status_symbol, style=f"bold {status}"), "  ", RichText(name))
                 nodes.append(ListItem(Label(label)))
             self.node_list_view.extend(nodes)
 
@@ -145,6 +158,7 @@ class NodeListWidget(Container):
     async def _update_log_and_info_async(self):
         if not self.selected_node_name or self.selected_node_name.startswith("["):
             return
+
         async with self._highlight_lock:
             try:
                 info_node = self.selected_node_name.lstrip("/")
@@ -164,6 +178,5 @@ class NodeListWidget(Container):
                 print(f"[log/info update error] {e}")
 
     def _update_if_ready(self):
-        # 非同期タスクが終わっていたら何もしない
         if self._highlight_task and self._highlight_task.done():
             self._highlight_task = None
