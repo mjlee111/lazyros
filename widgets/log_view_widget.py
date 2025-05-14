@@ -6,6 +6,7 @@ from textual.app import ComposeResult
 from textual.containers import Container
 from textual.widgets import RichLog
 from rich.markup import escape
+from rclpy.callback_groups import ReentrantCallbackGroup
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
@@ -26,7 +27,8 @@ class LogViewWidget(Container):
             Log.FATAL: "[bold magenta]",
         }
         self.logs_by_node: dict[str, list[str]] = {}
-        self.filtered_node: str | None = None 
+        self.filtered_node: str | None = None
+        self.callback_group = ReentrantCallbackGroup()  # Use a reentrant callback group for the subscription 
 
     def compose(self) -> ComposeResult:
         yield self.rich_log
@@ -37,7 +39,7 @@ class LogViewWidget(Container):
                 Log,
                 '/rosout',
                 self.log_callback,
-                10 
+                10,
             )
         except Exception as e:
              self.rich_log.write(f"[bold red]Error creating /rosout subscriber: {e}[/]")

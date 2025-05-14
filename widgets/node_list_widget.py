@@ -25,12 +25,9 @@ def escape_markup(text: str) -> str:
     return escape(text)
 
 @dataclass
-class NodeInfo:
+class NodeData:
     """A data class to hold information about a ROS node."""
     name: str
-    namespace: str
-    pid: int
-    command: str
     status: str
 
 class NodeListWidget(Container):
@@ -48,69 +45,80 @@ class NodeListWidget(Container):
         self.restart_config = restart_config or {}
         self.selected_node_name = None
         self.ignore_parser = IgnoreParser(ignore_file_path) # Instantiate IgnoreParser
+        
+        self.launched_nodes = {}
 
     def compose(self) -> ComposeResult:
         yield Label("ROS Nodes:")
         yield self.node_list_view
 
     def on_mount(self) -> None:
-        self.set_interval(0.1, self.update_node_list)
+        self.set_interval(1, self.update_node_list)
         self.set_interval(1, self.update_log_and_info)
         self.node_list_view.focus()
 
-    def update_node_list(self) -> None:
+    def update_node_list(self) -> None:        
+
+        node_set = set(self.launched_nodes.keys())
+        nodes = []
+        need_update = False
+
         try:
-            node_names_and_namespaces = self.ros_node.get_node_names_and_namespaces()
-            
-            current_node_names = set()
-            if node_names_and_namespaces:
-                for name, namespace in node_names_and_namespaces:
-                    if name.startswith("_") or name.startswith("launch_ros"):
-                        continue
-                    full_name = f"{namespace}/{name}" if namespace != "/" else f"/{name}"
-                    # Filter nodes based on the ignore list
-                    if not self.ignore_parser.should_ignore(full_name, 'node'):
-                        current_node_names.add(full_name)
+            command = "ros2 node list"
+            result = subprocess.run(command, shell=True, capture_output=True, text=True)
+            if result.returncode != 0:
+                nodes.append(ListItem(Label("[red]Error fetching nodes[/]")))
+                return
 
-            if current_node_names != self.previous_node_names:
-                current_index = self.node_list_view.index
-                self.node_list_view.clear()
-                nodes = []
-                sorted_names = sorted(list(current_node_names))
-                if sorted_names:
-                    for full_name in sorted_names:
-                        # Check node status using ros2 node info
-                        node_status = "red" # Default to red (not running)
-                        try:
-                            # Use the node name without the leading slash for ros2 node info
-                            info_command = f"ros2 node info {full_name}"
-                            result = subprocess.run(info_command, shell=True, capture_output=True, text=True, timeout=0.5) # Added timeout
-                            if result.returncode == 0:
-                                node_status = "green" # Node is running
-                        except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired) as e:
-                            # Node is not running or command failed
-                            node_status = "red"
-                            # print(f"Error checking status for {full_name}: {e}") # Optional: for debugging
+            for line in result.stdout.splitlines():
+                node_name = line.strip()
+                if not self.ignore_parser.should_ignore(node_name, 'node'):
+                    node_raw_name = node_name[1:] if node_name.startswith("/") else node_name
+                    node_slash_name = f"/{node_raw_name}"
 
-                        status_indicator = RichText("●", style=f"bold {node_status}")
-                        node_label = RichText(full_name)
-                        combined_label = RichText.assemble(node_label, status_indicator)
-                        nodes.append(ListItem(Label(combined_label)))
-                else:
-                     nodes.append(ListItem(Label("[No nodes found]")))
-                self.node_list_view.extend(nodes)
-                
-                if current_index is not None and current_index < len(nodes):
-                     self.node_list_view.index = current_index
-                elif len(nodes) > 0:
-                    self.node_list_view.index = 0
-                self.previous_node_names = current_node_names
+                    if node_raw_name not in self.launched_nodes:
+                        self.launched_nodes[node_raw_name] = NodeData(name=node_raw_name, status="green")
+                        need_update = True
+
+                    else:
+                        if self.launched_nodes[node_raw_name].status != "green":
+                            self.launched_nodes[node_raw_name].status = "green"
+                            need_update = True
+
+                        node_set.discard(node_raw_name)
+
+            for i in node_set:
+                if self.launched_nodes[i].status != "red":
+                    self.launched_nodes[i].status = "red"
+                    need_update = True
+
+            if not need_update:
+                return    
+
+            launched_nodes = self.launched_nodes.keys()
+            sorted_names = sorted(list(launched_nodes))
+
+            current_index = self.node_list_view.index 
+            self.node_list_view.clear()
+            for i in sorted_names:
+                status_indicator = RichText("●", style=f"bold {self.launched_nodes[i].status}")
+                node_label = RichText(i)
+                combined_label = RichText.assemble(status_indicator, "  ", node_label)
+                nodes.append(ListItem(Label(combined_label)))
+
+            self.node_list_view.extend(nodes)
+
+            if current_index is not None and current_index < len(nodes):
+                self.node_list_view.index = current_index
+            elif len(nodes) > 0:
+                self.node_list_view.index = 0
+
+                     
         except Exception as e:
             error_message = f"Error fetching nodes: {e}"
             if error_message not in self.previous_node_names:
                  self.node_list_view.clear()
                  self.node_list_view.append(ListItem(Label(error_message)))
-                 self.previous_node_names = {error_message}
 
     def action_restart_node(self) -> None:
         print("NodeListWidget.action_restart_node: Method called")
@@ -238,21 +246,13 @@ class NodeListWidget(Container):
             return
 
         try:
-            # Pass the name as it's used by ros2 node info (without leading /)
-            # and as used by log messages (full path)
-            # The current InfoViewWidget.update_info prepends "/" if it's not there.
-            # The current LogViewWidget.filter_logs uses the name directly.
-            # Let's ensure consistency. If selected_node_name is full path like "/talker":
-            #  - InfoViewWidget needs "talker"
-            #  - LogViewWidget needs "/talker" (if msg.name is "/talker")
-            
             info_node_name = self.selected_node_name[1:] if self.selected_node_name.startswith('/') else self.selected_node_name
-            log_filter_name = self.selected_node_name.strip("●") # Full path for log filtering
+            log_filter_name = self.selected_node_name.strip("●  ") # Full path for log filtering
 
             log_view = self.app.query_one("#log-view-content") # type: ignore
-            log_view.filter_logs(log_filter_name.strip("/")) # Pass the full path for filtering
+            log_view.filter_logs(log_filter_name.replace("/", ".")) # Pass the full path for filtering
             
             info_view = self.app.query_one("#info-view-content") # type: ignore
-            info_view.update_info(log_filter_name)
+            info_view.update_info("/"+log_filter_name)
         except Exception as e:
             print(f"Error updating log and info views from NodeListWidget: {e}")
