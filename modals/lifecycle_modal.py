@@ -6,25 +6,26 @@ from textual.widgets import Label, Button
 from textual.screen import ModalScreen
 
 from lifecycle_msgs.srv import GetAvailableTransitions, ChangeState, GetState
+from typing import List
 
-class NodeInfoModal(ModalScreen[None]):
+class LifecycleModal(ModalScreen[None]):
     """A modal screen to display node information."""
 
     CSS = """
-    NodeInfoModal {
+    LifecycleModal {
         align: center middle;
         layer: modal;
     }
 
-    #node-info-modal-container {
+    #lifycycle-modal-container {
         width: 40%;
-        height: 30%;
+        height: auto;
         border: round white;
         background: $background;
         overflow-y: auto;
     }
 
-    #node-info-modal-title {
+    #lifycycle-modal-title {
         dock: top;
         width: 100%;
         text-align: center;
@@ -32,18 +33,28 @@ class NodeInfoModal(ModalScreen[None]):
         background: $primary-background-darken-1;
     }
 
-    #node-info-modal-content {
+    #lifycycle-modal-content {
         width: 100%;
         border: round $primary;
         margin: 0 1;
         overflow-y: auto;
     }
 
-    #node-info-modal-instruction {
+    #lifycycle-modal-instruction {
         dock: bottom;
         width: 100%;
         text-align: center;
         padding: 1;
+    }
+
+    Button {
+        width: 30%;
+        margin: 1 2;
+        text-align: center;
+        background: $primary;
+        color: $text;
+        border: round $primary;
+        height: 3;
     }
     """
 
@@ -66,7 +77,7 @@ class NodeInfoModal(ModalScreen[None]):
 
     def update_display(self) -> None:
         self.node.get_logger().info(f"Updating display for node: {self.node_name}")
-        title = f"Node Info: {self.node_name}"
+        title = f"Lifecycle Info: {self.node_name}"
         content = ""
         if self.is_lifecycle:
             current_state = self.get_current_state()
@@ -82,7 +93,7 @@ class NodeInfoModal(ModalScreen[None]):
                 for transition in transitions:
                     content += f"- {transition.transition.label}\n"
                     # Add a button for each transition
-                    self.query_one("#node-info-modal-content").mount(
+                    self.query_one("#lifycycle-modal-content").mount(
                         Button(transition.transition.label, id=f"transition-button-{transition.transition.id}")
                     )
             else:
@@ -90,8 +101,9 @@ class NodeInfoModal(ModalScreen[None]):
         else:
             content = "This is not a lifecycle node."
 
-        self.query_one("#node-info-modal-title").update(title)
-        self.query_one("#node-info-modal-content").update(content)
+        self.query_one("#lifycycle-modal-title").update(title)
+        # Update the label with text content
+        self.query_one("#lifycycle-modal-text").update(content) # Changed selector
 
     def get_current_state(self):
         while not self.get_state_client.wait_for_service(timeout_sec=1.0):
@@ -106,8 +118,6 @@ class NodeInfoModal(ModalScreen[None]):
             return "Unknown"
 
     def get_available_transitions(self):
-        destinations = []
-        
         while not self.get_transition_client.wait_for_service(timeout_sec=1.0):
             self.node.get_logger().info('get_available_transitions service not available, waiting again...')
         request = GetAvailableTransitions.Request()
@@ -139,15 +149,15 @@ class NodeInfoModal(ModalScreen[None]):
         else:
             self.node.get_logger().error('Exception while calling service: %r' % future.exception())
     
-    def compose(self) -> ComposeResult:
-        """Compose the modal dialog."""
+    def compose(self):
         yield Container(
-            Label("", id="node-info-modal-title"),
+            Label("", id="lifycycle-modal-title"),
             VerticalScroll(
-                Label("", id="node-info-modal-content"),
+                Label("", id="lifycycle-modal-text"), # Changed ID
+                id="lifycycle-modal-content", # Changed ID to VerticalScroll
             ),
-            Label("Press 'q' to quit.", id="node-info-modal-instruction"),
-            id="node-info-modal-container",
+            Label("Press 'q' to quit.", id="lifycycle-modal-instruction"),
+            id="lifycycle-modal-container",
         )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

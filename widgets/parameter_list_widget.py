@@ -105,7 +105,7 @@ class ParameterListWidget(Container):
                     current_node_name = potential_node_name
                 else:
                     current_node_name = None
-                    # unparsed_lines_count +=1
+
             elif current_node_name and line:
                 if line_raw.startswith("  ") and not line.startswith(" "):
                     param_name = line.strip()
