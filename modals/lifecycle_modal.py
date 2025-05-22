@@ -6,6 +6,7 @@ from textual.widgets import Label, Button
 from textual.screen import ModalScreen
 
 from lifecycle_msgs.srv import GetAvailableTransitions, ChangeState, GetState
+from lifecycle_msgs.msg import Transition
 from typing import List
 
 class LifecycleModal(ModalScreen[None]):
@@ -62,11 +63,12 @@ class LifecycleModal(ModalScreen[None]):
         Binding("q", "dismiss", "Quit Modal")
     ]
 
-    def __init__(self, node, node_name: str, is_lifecycle: bool, **kwargs):
+    def __init__(self, node, node_data, **kwargs):
         super().__init__(**kwargs)
         self.node = node
-        self.node_name = node_name
-        self.is_lifecycle = is_lifecycle
+        self.node_name = node_data.name
+        self.status = node_data.status
+        self.is_lifecycle = node_data.is_lifecycle
 
         self.get_state_client = self.node.create_client(GetState, f"{self.node_name}/get_state")
         self.get_transition_client = self.node.create_client(GetAvailableTransitions, f"{self.node_name}/get_available_transitions")
@@ -78,36 +80,45 @@ class LifecycleModal(ModalScreen[None]):
     def update_display(self) -> None:
         self.node.get_logger().info(f"Updating display for node: {self.node_name}")
         title = f"Lifecycle Info: {self.node_name}"
-        content = ""
-        if self.is_lifecycle:
-            current_state = self.get_current_state()
-            content += f"Lifecycle State: {current_state}\n\n"
-            transitions = self.get_available_transitions()
-            if transitions:
-                content += "Available Transitions:\n"
-                # Remove existing transition buttons
-                for button in self.query(Button):
-                    if button.id and button.id.startswith("transition-button-"):
-                        button.remove()
-
-                for transition in transitions:
-                    content += f"- {transition.transition.label}\n"
-                    # Add a button for each transition
-                    self.query_one("#lifycycle-modal-content").mount(
-                        Button(transition.transition.label, id=f"transition-button-{transition.transition.id}")
-                    )
-            else:
-                content += "No available transitions."
-        else:
-            content = "This is not a lifecycle node."
-
         self.query_one("#lifycycle-modal-title").update(title)
-        # Update the label with text content
+
+        content = ""
+        
+        if self.status != "green":
+            content = "Node is not running.\n"
+            self.query_one("#lifycycle-modal-text").update(content) # Changed selector
+            return
+        if not self.is_lifecycle:
+            content = "This is not a lifecycle node.\n"
+            self.query_one("#lifycycle-modal-text").update(content) # Changed selector
+            return
+        
+        current_state = self.get_current_state()
+        content += f"Lifecycle State: {current_state}\n\n"
+        transitions = self.get_available_transitions()
+        if transitions:
+            content += "Available Transitions:\n"
+            # Remove existing transition buttons
+            for button in self.query(Button):
+                if button.id and button.id.startswith("transition-button-"):
+                    button.remove()
+            for transition in transitions:
+                content += f"- {transition.transition.label}\n"
+                # Add a button for each transition
+                self.query_one("#lifycycle-modal-content").mount(
+                    Button(transition.transition.label, id=f"transition-button-{transition.transition.id}")
+                )
+        else:
+            content += "No available transitions."
+            for button in self.query(Button):
+                button.remove()
+
         self.query_one("#lifycycle-modal-text").update(content) # Changed selector
 
     def get_current_state(self):
         while not self.get_state_client.wait_for_service(timeout_sec=1.0):
             self.node.get_logger().info('get_state service not available, waiting again...')
+        
         request = GetState.Request()
         future = self.get_state_client.call_async(request)
         rclpy.spin_until_future_complete(self.node, future)
@@ -120,6 +131,7 @@ class LifecycleModal(ModalScreen[None]):
     def get_available_transitions(self):
         while not self.get_transition_client.wait_for_service(timeout_sec=1.0):
             self.node.get_logger().info('get_available_transitions service not available, waiting again...')
+
         request = GetAvailableTransitions.Request()
         future = self.get_transition_client.call_async(request)
         rclpy.spin_until_future_complete(self.node, future)
@@ -153,8 +165,8 @@ class LifecycleModal(ModalScreen[None]):
         yield Container(
             Label("", id="lifycycle-modal-title"),
             VerticalScroll(
-                Label("", id="lifycycle-modal-text"), # Changed ID
-                id="lifycycle-modal-content", # Changed ID to VerticalScroll
+                Label("", id="lifycycle-modal-text"),
+                id="lifycycle-modal-content",
             ),
             Label("Press 'q' to quit.", id="lifycycle-modal-instruction"),
             id="lifycycle-modal-container",
@@ -166,5 +178,4 @@ class LifecycleModal(ModalScreen[None]):
             self.trigger_transition(transition_id)
 
     def on_dismiss(self) -> None:
-        self.node.destroy_node()
         super().on_dismiss()

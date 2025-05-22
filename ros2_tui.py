@@ -19,26 +19,22 @@ from widgets.topic_list_widget import TopicListWidget
 from widgets.parameter_list_widget import ParameterListWidget
 from modals.topic_info_modal import TopicInfoModal # Import TopicInfoModal
 from modals.message_modal import MessageModal # Import MessageModal
-from utils.utility import ros_spin_thread, load_restart_config, signal_shutdown
+from utils.utility import ros_spin_thread, signal_shutdown, load_restart_config
 
 
 class RosTuiApp(App):
     """A Textual app to monitor ROS information."""
 
     BINDINGS = [
-        ("d", "toggle_dark", "Toggle dark mode"),
         ("ctrl+q", "quit", "Quit"),
-        ("r", "restart_node", "Restart Node"),
-        #("shift+left", "focus_left_pane", "Focus Left Pane"),
-        #("shift+right", "focus_right_pane", "Focus Right Pane"),
     ]
 
     CSS_PATH = "ros2_tui.css"
 
     def __init__(self, ros_node: Node, restart_config=None):
         super().__init__()
-        self.ros_node = ros_node
-        self.restart_config = restart_config
+        self.ros_node = ros_node        
+        self.restart_config = load_restart_config("config/restart_config.yaml")
 
     def on_mount(self) -> None:
         """Called when app is mounted. Perform async setup here."""
@@ -124,13 +120,12 @@ def main(args=None):
     app: RosTuiApp | None = None # type: ignore
     ros_thread = None
     try:
-        restart_config = load_restart_config()
         ros_node = Node("ros2_tui_monitor_node")
 
         ros_thread = threading.Thread(target=ros_spin_thread, args=(ros_node,), daemon=True)
         ros_thread.start()
 
-        app = RosTuiApp(ros_node, restart_config)
+        app = RosTuiApp(ros_node)
         # Run the app using its own run method, which should handle async setup
         app.run()
 

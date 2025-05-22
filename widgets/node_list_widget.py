@@ -12,6 +12,9 @@ from utils.ignore_parser import IgnoreParser
 from modals.lifecycle_modal import LifecycleModal 
 from dataclasses import dataclass
 
+import os
+import signal
+
 def escape_markup(text: str) -> str:
     return escape(text)
 
@@ -24,7 +27,9 @@ class NodeData:
 class NodeListWidget(Container):
     BINDINGS = [
         Binding("r", "restart_node", "Restart Node"),
-        Binding("l", "show_node_info", "Node Info"),
+        Binding("k", "kill_node", "Kill Node"),
+        Binding("s", "start_node", "Start Node"),
+        Binding("l", "show_lifecycle_state", "Show Lifecycle State"),
     ]
 
     def __init__(self, ros_node: Node, restart_config=None, ignore_file_path='config/display_ignore.yaml', **kwargs) -> None:
@@ -50,7 +55,6 @@ class NodeListWidget(Container):
 
     def on_mount(self) -> None:
         self.update_node_list()
-        self._update_if_ready()
         self.set_interval(5, self.update_node_list)
         self.set_interval(1, self._update_if_ready)
         self.node_list_view.focus()
@@ -144,7 +148,6 @@ class NodeListWidget(Container):
 
             i = raw_name.find("/") + 1
             self.selected_node_name = raw_name[i:] if i != -1 else raw_name
-
             self._current_node = raw_name
 
             if self._highlight_task and not self._highlight_task.done():
@@ -154,12 +157,44 @@ class NodeListWidget(Container):
         except Exception as e:
             print(f"[highlight error] {e}")
             self.selected_node_name = None
+            
+    def action_kill_node(self) -> None:
+        try:
+            result = subprocess.run(
+                ['pgrep', '-f', self.selected_node_name],
+                stdout=subprocess.PIPE,
+                text=True,
+                check=True
+            )
+            pids = result.stdout.splitlines()
+            if result.returncode != 0:
+                return
+            for pid in pids:
+                os.kill(int(pid), signal.SIGTERM)
+        except subprocess.CalledProcessError as e:
+            pass
+        except Exception as e:
+            pass
+        
+    def action_start_node(self) -> None:
+        if not self.selected_node_name:
+            return
+        
+        node_name = "/"+self.selected_node_name
+        self.ros_node.get_logger().info(f"Starting node: {node_name}")
 
-    def action_show_node_info(self) -> None:
+        if node_name in self.restart_config["nodes"]:
+            restart_cmd = self.restart_config["nodes"][node_name]["command"]
+            subprocess.Popen(restart_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8', bufsize=1)
+        else:
+            self.ros_node.get_logger().error(f"Starting node: {node_name}")
+            print(f"Node {node_name} is not configured for restart.")
+        
+    def action_show_lifecycle_state(self) -> None:
         """Show a modal with information about the selected node."""
 
         node_data = self.launched_nodes[self.selected_node_name]
-        self.app.push_screen(LifecycleModal(self.ros_node, self.selected_node_name, node_data.is_lifecycle))
+        self.app.push_screen(LifecycleModal(self.ros_node, node_data))
 
     async def _delayed_update(self):
         await asyncio.sleep(self._highlight_delay)
