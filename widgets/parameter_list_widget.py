@@ -138,7 +138,7 @@ class ParameterListWidget(Container):
                         ]
 
                         if not filtered_params:
-                            return ["[No parameters found after filtering.]"]
+                            return ["[No parameters found after filtering]"]
                         return filtered_params
                     else:
                         return ["[No parameters found: 'ros2 param list' returned empty output]"]
@@ -147,15 +147,15 @@ class ParameterListWidget(Container):
             else:
                 err_msg_raw = process_result.stderr.strip() if process_result.stderr else "Unknown error"
                 #self._log_error(f"Thread: 'ros2 param list' failed. RC: {process_result.returncode}. Error: {err_msg_raw}")
-                return [escape_markup(f"[Error (RC {process_result.returncode}) running 'ros2 param list'. See logs.]")]
+                return [escape_markup(f"[Error (RC {process_result.returncode}) running 'ros2 param list'. See logs]")]
 
         except subprocess.TimeoutExpired:
             #self._log_error("Thread: 'ros2 param list' command timed out.")
-            return ["[Error: 'ros2 param list' command timed out. Check ROS environment.]"]
+            return ["[Error: 'ros2 param list' command timed out. Check ROS environment]"]
 
         except Exception as e_thread:
             #self._log_error(f"Thread: Error during parameter list fetch: {type(e_thread).__name__} - {str(e_thread)}")
-            return [escape_markup(f"[General Error in list fetch thread: {type(e_thread).__name__}. See logs.]")]
+            return [escape_markup(f"[General Error in list fetch thread: {type(e_thread).__name__}. See logs]")]
 
     def _update_view_from_thread(self, new_params_list: List[str]):
         with self._is_updating_lock:
