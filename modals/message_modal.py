@@ -49,7 +49,7 @@ class MessageModal(ModalScreen[None]):
     """
 
     BINDINGS = [
-        Binding("q", "dismiss", "Quit Modal")
+        Binding("escape", "dismiss", "Quit Modal")
     ]
 
     def __init__(self, message_type: str, **kwargs):
@@ -81,6 +81,6 @@ class MessageModal(ModalScreen[None]):
             VerticalScroll(  # Ensure the content is scrollable
                 Label(self.message_info, id="message-modal-content"),
             ),
-            Label("Press 'q' to quit.", id="message-modal-instruction"),
+            Label("Press 'ESC' to quit.", id="message-modal-instruction"),
             id="message-modal-container",
         )
