@@ -80,7 +80,7 @@ class SetParameterModal(ModalScreen[None]):
     """
 
     BINDINGS = [
-        Binding("escape, q", "dismiss", "Close", show=True),
+        Binding("escape", "dismiss", "Close", show=True),
     ]
 
     def __init__(self, node_name: str, param_name: str, param_type: str, **kwargs) -> None:
@@ -99,7 +99,7 @@ class SetParameterModal(ModalScreen[None]):
                 id="set-param-horizontal-container" 
             ),
             Static("", id="set-param-status"),
-            Label("Press 'q' to quit.", id="set-param-instruction"),
+            Label("Press 'ESC' to quit.", id="set-param-instruction"),
             id="set-param-dialog",
         )
     
