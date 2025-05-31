@@ -60,7 +60,7 @@ class LifecycleModal(ModalScreen[None]):
     """
 
     BINDINGS = [
-        Binding("q", "dismiss", "Quit Modal")
+        Binding("escape", "dismiss", "Quit Modal")
     ]
 
     def __init__(self, node, node_data, **kwargs):
@@ -168,7 +168,7 @@ class LifecycleModal(ModalScreen[None]):
                 Label("", id="lifycycle-modal-text"),
                 id="lifycycle-modal-content",
             ),
-            Label("Press 'q' to quit.", id="lifycycle-modal-instruction"),
+            Label("Press 'ESC' to quit.", id="lifycycle-modal-instruction"),
             id="lifycycle-modal-container",
         )
 
