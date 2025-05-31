@@ -48,7 +48,7 @@ class ParameterValueModal(ModalScreen[None]):
     """
 
     BINDINGS = [
-        Binding("q", "dismiss", "Quit Modal")
+        Binding("escape", "dismiss", "Quit Modal")
     ]
 
     def __init__(self, title: str, content: str, **kwargs) -> None:
@@ -61,7 +61,7 @@ class ParameterValueModal(ModalScreen[None]):
         yield Container(
             Label(self.modal_title, id="modal-title"),
             Label(self.modal_content, id="modal-content"),
-            Label("Press 'q' to quit.", id="modal-instruction"),
+            Label("Press 'ESC' to quit.", id="modal-instruction"),
             id="modal-container",
         )
 
