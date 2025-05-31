@@ -48,7 +48,7 @@ class TopicEchoModal(ModalScreen[None]):
     """
 
     BINDINGS = [
-        Binding("q", "dismiss", "Close & Stop Echo"),
+        Binding("escape", "dismiss", "Close & Stop Echo"),
     ]
 
     def __init__(self, topic_name: str, topic_type: str, **kwargs) -> None:
@@ -65,7 +65,7 @@ class TopicEchoModal(ModalScreen[None]):
         yield Container(
             Label(f"Echoing Topic: {escape_markup(self.topic_name)} ({escape_markup(self.topic_type)})", id="echo-modal-title"),
             self.log_widget,
-            Label("Press 'q' to close and stop echoing.", id="echo-modal-instruction"),
+            Label("Press 'ESC' to close and stop echoing.", id="echo-modal-instruction"),
             id="echo-modal-container",
         )
 
