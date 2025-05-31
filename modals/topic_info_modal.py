@@ -48,7 +48,7 @@ class TopicInfoModal(ModalScreen[None]):
     """
 
     BINDINGS = [
-        Binding("q", "dismiss", "Quit Modal")
+        Binding("escape", "dismiss", "Quit Modal")
     ]
 
     def __init__(self, topic_name: str, **kwargs):
@@ -78,7 +78,7 @@ class TopicInfoModal(ModalScreen[None]):
         yield Container(
             Label(f"Topic Information: {escape_markup(self.topic_name)}", id="modal-title"),
             Label(self.topic_info, id="modal-content"), # topic_info is already escaped
-            Label("Press 'q' to quit.", id="modal-instruction"),
+            Label("Press 'ESC' to quit.", id="modal-instruction"),
             id="modal-container",
             classes="modal-content",
         )
