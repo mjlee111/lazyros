@@ -22,14 +22,14 @@ from modals.message_modal import MessageModal # Import MessageModal
 from utils.utility import ros_spin_thread, signal_shutdown, load_restart_config
 
 
-class RosTuiApp(App):
+class LazyRosApp(App):
     """A Textual app to monitor ROS information."""
 
     BINDINGS = [
         ("ctrl+q", "quit", "Quit"),
     ]
 
-    CSS_PATH = "ros2_tui.css"
+    CSS_PATH = "lazyros.css"
 
     def __init__(self, ros_node: Node, restart_config=None):
         super().__init__()
@@ -42,7 +42,7 @@ class RosTuiApp(App):
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
-        print("RosTuiApp.compose: Composing the application layout...")
+        print("LazyRosApp.compose: Composing the application layout...")
         yield Header()
 
         with Horizontal():
@@ -76,7 +76,7 @@ class RosTuiApp(App):
         
     def action_restart_node(self) -> None:
         """Forward restart_node action to the NodeListWidget."""
-        print("RosTuiApp.action_restart_node: Forwarding action to NodeListWidget")
+        print("LazyRosApp.action_restart_node: Forwarding action to NodeListWidget")
         node_list = self.query_one(NodeListWidget)
         if node_list:
             node_list.action_restart_node()
@@ -117,15 +117,15 @@ class RosTuiApp(App):
 def main(args=None):
     rclpy.init(args=args)
     ros_node = None
-    app: RosTuiApp | None = None # type: ignore
+    app: LazyRosApp | None = None # type: ignore
     ros_thread = None
     try:
-        ros_node = Node("ros2_tui_monitor_node")
+        ros_node = Node("lazyros_monitor_node")
 
         ros_thread = threading.Thread(target=ros_spin_thread, args=(ros_node,), daemon=True)
         ros_thread.start()
 
-        app = RosTuiApp(ros_node)
+        app = LazyRosApp(ros_node)
         # Run the app using its own run method, which should handle async setup
         app.run()
 
@@ -143,7 +143,7 @@ def main(args=None):
         if rclpy.ok():
             rclpy.shutdown()
         
-        print("ROS TUI exited cleanly.")
+        print("LazyRos exited cleanly.")
 
 
 if __name__ == "__main__":
