@@ -1,6 +1,6 @@
 # lazyros
 
-A simple and  friendly terminal UI for ROS2.
+A simple and friendly terminal UI for ROS2.
 
 ![image](./asset/lazyros_usage_short_movie.gif)
 
