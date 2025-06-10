@@ -58,7 +58,7 @@ python lazyros.py
 ## Help
 
 - Trouble
-  If you get a trouble, please feel fee to tell me in issue!
+  If you encounter trouble, please feel free to open an issue!
 
 - Request
 
