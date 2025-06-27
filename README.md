@@ -27,11 +27,17 @@ A simple and friendly terminal UI for ROS2.
 
 ## Installation
 
-```shell
-git clone https://github.com/TechMagicKK/lazyros.git
-cd lazyros
-pip install -r requirements.txt
-```
+- pip (recommended)
+  ```shell
+  pip install lazyros
+  ```
+
+- from source
+  ```shell
+  git clone https://github.com/TechMagicKK/lazyros.git
+  cd lazyros
+  pip install -r requirements.txt
+  ```
 
 
 
@@ -52,8 +58,25 @@ python lazyros.py
   - All operations are performed by clicking and using shortcut keys.
 
   - Available shortcut keys are displayed at the bottom left.
+  
+  
 
+## Getting started
 
+1. Run talker demo node
+   ```shell
+   ros2 run demo_nodes_cpp talker
+   ```
+
+2. Run listener demo node
+   ```
+   ros2 run demo_nodes_cpp listener
+   ```
+
+3. Run lazyros
+   ```shell
+   python lazyros.py
+   ```
 
 ## Help
 
@@ -63,3 +86,7 @@ python lazyros.py
 - Request
 
   Any request is welcome, please feel free to request in issue!
+
+
+## Release
+Check [How to release](./docs/release.md).
