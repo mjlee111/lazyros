@@ -1,11 +1,11 @@
 [project]
 name = "lazyros"
-version = "0.1.0"
+version = "0.1.9"
 description = ""
 authors = [
     {name = "Harumo Sasatake",email = "sasatake.harumo@techmagic.co.jp"}
 ]
-license = {text = "Apache License 2.0"}
+license = {text = "Apach-2.0"}
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
@@ -20,4 +20,4 @@ build-backend = "poetry.core.masonry.api"
 
 
 [tool.poetry.scripts]
-lazyros = "lazyros:lazyros:main"
+lazyros = "lazyros.lazyros:main"

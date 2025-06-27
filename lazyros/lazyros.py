@@ -12,14 +12,14 @@ from textual.widgets import (
     TabbedContent,
 )
 
-from widgets.node_list_widget import NodeListWidget
-from widgets.log_view_widget import LogViewWidget
-from widgets.info_view_widget import InfoViewWidget
-from widgets.topic_list_widget import TopicListWidget
-from widgets.parameter_list_widget import ParameterListWidget
-from modals.topic_info_modal import TopicInfoModal # Import TopicInfoModal
-from modals.message_modal import MessageModal # Import MessageModal
-from utils.utility import ros_spin_thread, signal_shutdown, load_restart_config
+from lazyros.widgets.node_list_widget import NodeListWidget
+from lazyros.widgets.log_view_widget import LogViewWidget
+from lazyros.widgets.info_view_widget import InfoViewWidget
+from lazyros.widgets.topic_list_widget import TopicListWidget
+from lazyros.widgets.parameter_list_widget import ParameterListWidget
+from lazyros.modals.topic_info_modal import TopicInfoModal  # Import TopicInfoModal
+from lazyros.modals.message_modal import MessageModal  # Import MessageModal
+from lazyros.utils.utility import ros_spin_thread, signal_shutdown, load_restart_config
 
 
 class LazyRosApp(App):
@@ -33,7 +33,7 @@ class LazyRosApp(App):
 
     def __init__(self, ros_node: Node, restart_config=None):
         super().__init__()
-        self.ros_node = ros_node        
+        self.ros_node = ros_node
         self.restart_config = load_restart_config("config/restart_config.yaml")
 
     def on_mount(self) -> None:
@@ -59,7 +59,6 @@ class LazyRosApp(App):
                         yield Static("Parameters", classes="frame-title")
                         yield ParameterListWidget(self.ros_node, id="parameter-list-content")
 
-
             with Container(id="right-frame", classes="right-pane"):
                 print("Adding right pane...")
                 yield Static("Logs and Info", classes="frame-title")
@@ -73,7 +72,7 @@ class LazyRosApp(App):
     def action_toggle_dark(self) -> None:
         """An action to toggle dark mode."""
         self.dark = not self.dark
-        
+
     def action_restart_node(self) -> None:
         """Forward restart_node action to the NodeListWidget."""
         print("LazyRosApp.action_restart_node: Forwarding action to NodeListWidget")
@@ -85,20 +84,20 @@ class LazyRosApp(App):
         """Focus the left pane and highlight it."""
         left_pane: Container = self.query_one("#left-frame")
         right_pane: Container = self.query_one("#right-frame")
-    
+
         left_pane.styles.border = ("heavy", "white")
         right_pane.styles.border = ("solid", "white")
-    
+
         left_pane.focus()
-    
+
     def action_focus_right_pane(self) -> None:
         """Focus the right pane and highlight it."""
         left_pane: Container = self.query_one("#left-frame")
         right_pane: Container = self.query_one("#right-frame")
-    
+
         left_pane.styles.border = ("solid", "white")
         right_pane.styles.border = ("heavy", "white")
-    
+
         right_pane.focus()
 
     def action_handle_topic_click(self, topic_name: str) -> None:
@@ -117,7 +116,7 @@ class LazyRosApp(App):
 def main(args=None):
     rclpy.init(args=args)
     ros_node = None
-    app: LazyRosApp | None = None # type: ignore
+    app: LazyRosApp | None = None  # type: ignore
     ros_thread = None
     try:
         ros_node = Node("lazyros_monitor_node")
@@ -129,12 +128,11 @@ def main(args=None):
         # Run the app using its own run method, which should handle async setup
         app.run()
 
-
     except Exception as e:
         print(f"Error initializing ROS or running the TUI: {e}")
     finally:
         signal_shutdown()
-        
+
         if ros_thread:
             ros_thread.join(timeout=1.0)
 
@@ -142,7 +140,7 @@ def main(args=None):
             ros_node.destroy_node()
         if rclpy.ok():
             rclpy.shutdown()
-        
+
         print("LazyRos exited cleanly.")
 
 

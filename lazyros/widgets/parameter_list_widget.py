@@ -1,6 +1,6 @@
 import subprocess
 import threading
-import re # For parsing node and param name
+import re  # For parsing node and param name
 from typing import List, Optional, Tuple
 
 from rclpy.node import Node
@@ -10,9 +10,6 @@ from textual.containers import Container, VerticalScroll, Horizontal, Center, Sc
 from textual.css.query import DOMQuery
 from textual.reactive import reactive
 from textual.screen import Screen
-from modals.parameter_value_modal import ParameterValueModal
-from modals.set_parameter_modal import SetParameterModal # Import SetParameterModal
-from utils.ignore_parser import IgnoreParser # Import IgnoreParser
 from textual.widgets import (
     Label,
     ListItem,
@@ -23,11 +20,18 @@ from textual.widgets import (
 )
 from rich.markup import escape
 
+from lazyros.modals.parameter_value_modal import ParameterValueModal
+from lazyros.modals.set_parameter_modal import SetParameterModal  # Import SetParameterModal
+from lazyros.utils.ignore_parser import IgnoreParser  # Import IgnoreParser
+
+
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
     return escape(text)
 
 # --- Modal Screen Definition ---
+
+
 class ParameterValueModalScreen(Screen):
     """A modal screen to display a parameter's value."""
 
@@ -44,7 +48,7 @@ class ParameterValueModalScreen(Screen):
         yield Container(
             Static(self.modal_title, id="modal_title"),
             Container(
-                Static(self.modal_content, id="modal_content_text"), # Wrap content for scrolling if needed
+                Static(self.modal_content, id="modal_content_text"),  # Wrap content for scrolling if needed
                 id="modal_content_container"
             ),
             Center(
@@ -58,12 +62,14 @@ class ParameterValueModalScreen(Screen):
             self.app.pop_screen()
 
 # --- ParameterListWidget ---
+
+
 class ParameterListWidget(Container):
     """A widget to display the list of ROS parameters using 'ros2 param list'."""
 
     BINDINGS = [
         Binding("g", "get_selected_parameter_value", "Get Value", show=True),
-        Binding("s", "set_selected_parameter", "Set Value", show=True), # Add set binding
+        Binding("s", "set_selected_parameter", "Set Value", show=True),  # Add set binding
     ]
 
     def __init__(self, ros_node: Node, **kwargs) -> None:
@@ -75,7 +81,7 @@ class ParameterListWidget(Container):
         self._is_updating_lock = threading.Lock()
         self._is_updating = False
         self._get_value_thread: Optional[threading.Thread] = None
-        self.ignore_parser = IgnoreParser('config/display_ignore.yaml') # Instantiate IgnoreParser
+        self.ignore_parser = IgnoreParser('config/display_ignore.yaml')  # Instantiate IgnoreParser
 
     def _log_error(self, msg: str):
         if hasattr(self.ros_node, 'get_logger'):
@@ -84,7 +90,7 @@ class ParameterListWidget(Container):
     def compose(self) -> ComposeResult:
         yield Label("ROS Parameters:")
         yield ScrollableContainer(self.parameter_list_view)
-        #self.parameter_list_view.focus() # Ensure list view can receive key presses
+        # self.parameter_list_view.focus() # Ensure list view can receive key presses
 
     def on_mount(self) -> None:
         self.set_interval(3, self.trigger_update_list)
@@ -122,15 +128,15 @@ class ParameterListWidget(Container):
             process_result = subprocess.run(
                 cmd, shell=True, capture_output=True, text=True, timeout=10
             )
-            #if process_result.stderr:
-                #self._log_error(f"Thread: stderr from 'ros2 param list':\n{process_result.stderr}")
+            # if process_result.stderr:
+            # self._log_error(f"Thread: stderr from 'ros2 param list':\n{process_result.stderr}")
 
             if process_result.returncode == 0:
                 if process_result.stdout:
                     output_str = process_result.stdout.strip()
                     if output_str:
                         parsed_list = self._parse_ros2_param_list_output(output_str)
-                        
+
                         # Filter parameters based on the ignore list
                         filtered_params = [
                             param_str for param_str in parsed_list
@@ -146,15 +152,15 @@ class ParameterListWidget(Container):
                     return ["['ros2 param list' succeeded but gave no stdout]"]
             else:
                 err_msg_raw = process_result.stderr.strip() if process_result.stderr else "Unknown error"
-                #self._log_error(f"Thread: 'ros2 param list' failed. RC: {process_result.returncode}. Error: {err_msg_raw}")
+                # self._log_error(f"Thread: 'ros2 param list' failed. RC: {process_result.returncode}. Error: {err_msg_raw}")
                 return [escape_markup(f"[Error (RC {process_result.returncode}) running 'ros2 param list'. See logs]")]
 
         except subprocess.TimeoutExpired:
-            #self._log_error("Thread: 'ros2 param list' command timed out.")
+            # self._log_error("Thread: 'ros2 param list' command timed out.")
             return ["[Error: 'ros2 param list' command timed out. Check ROS environment]"]
 
         except Exception as e_thread:
-            #self._log_error(f"Thread: Error during parameter list fetch: {type(e_thread).__name__} - {str(e_thread)}")
+            # self._log_error(f"Thread: Error during parameter list fetch: {type(e_thread).__name__} - {str(e_thread)}")
             return [escape_markup(f"[General Error in list fetch thread: {type(e_thread).__name__}. See logs]")]
 
     def _update_view_from_thread(self, new_params_list: List[str]):
@@ -168,7 +174,7 @@ class ParameterListWidget(Container):
             if items and (self.parameter_list_view.index is None or self.parameter_list_view.index >= len(items)):
                 self.parameter_list_view.index = 0
             elif not items:
-                 self.parameter_list_view.index = None
+                self.parameter_list_view.index = None
             self.previous_parameters_display_list = new_params_list
 
     def _list_thread_target(self):
@@ -178,7 +184,8 @@ class ParameterListWidget(Container):
 
     def trigger_update_list(self) -> None:
         with self._is_updating_lock:
-            if self._is_updating: return
+            if self._is_updating:
+                return
             self._is_updating = True
 
         self._update_thread = threading.Thread(target=self._list_thread_target, daemon=True)
@@ -193,7 +200,7 @@ class ParameterListWidget(Container):
             node_name = match.group(1).strip()
             param_name = match.group(2).strip()
             return node_name, param_name
-        #self._log_error(f"Could not parse selected item: '{item_text}'")
+        # self._log_error(f"Could not parse selected item: '{item_text}'")
         return None
 
     def _fetch_parameter_value_thread_target(self, node_name: str, param_name: str, modal_instance: ParameterValueModal):
@@ -201,7 +208,7 @@ class ParameterListWidget(Container):
 
         value_result_str = f"Fetching value for {node_name}: {param_name}..."
         try:
-            cmd = f"ros2 param get \"{node_name}\" \"{param_name}\"" # Ensure quoting for names with spaces/symbols
+            cmd = f"ros2 param get \"{node_name}\" \"{param_name}\""  # Ensure quoting for names with spaces/symbols
             process_result = subprocess.run(
                 cmd, shell=True, capture_output=True, text=True, timeout=5
             )
@@ -211,14 +218,14 @@ class ParameterListWidget(Container):
                 value_result_str = process_result.stdout.strip() if process_result.stdout else "[No output from command]"
             else:
                 err_msg = process_result.stderr.strip() if process_result.stderr else "Unknown error"
-                #self._log_error(f"Error getting param {node_name} {param_name}: RC {process_result.returncode}, Err: {err_msg}")
+                # self._log_error(f"Error getting param {node_name} {param_name}: RC {process_result.returncode}, Err: {err_msg}")
                 value_result_str = f"Error fetching value:\n{err_msg}"
         except subprocess.TimeoutExpired:
-            #self._log_error(f"Timeout getting param {node_name} {param_name}")
+            # self._log_error(f"Timeout getting param {node_name} {param_name}")
             title = f"Timeout for {param_name}"
             value_result_str = "Command timed out."
         except Exception as e:
-            #self._log_error(f"Exception getting param {node_name} {param_name}: {e}")
+            # self._log_error(f"Exception getting param {node_name} {param_name}: {e}")
             title = f"Exception for {param_name}"
             value_result_str = f"An error occurred: {e}"
 
@@ -237,14 +244,14 @@ class ParameterListWidget(Container):
             return
 
         # ListItem contains a Label. We need the Label's text.
-        children_query: DOMQuery[Label] = highlighted_item_widget.query(Label) # type: ignore
+        children_query: DOMQuery[Label] = highlighted_item_widget.query(Label)  # type: ignore
         if not children_query:
             self.app.bell()
             return
 
         selected_label: Label = children_query.first()
         item_text_renderable = selected_label.renderable
-        item_text_plain = str(item_text_renderable) # Convert RichText or str to plain str
+        item_text_plain = str(item_text_renderable)  # Convert RichText or str to plain str
 
         parsed_names = self._parse_selected_item(item_text_plain)
         if not parsed_names:
@@ -259,7 +266,7 @@ class ParameterListWidget(Container):
 
         self._get_value_thread = threading.Thread(
             target=self._fetch_parameter_value_thread_target,
-            args=(node_name, param_name, fetching_modal), # Pass modal instance to thread
+            args=(node_name, param_name, fetching_modal),  # Pass modal instance to thread
             daemon=True
         )
         self._get_value_thread.start()
@@ -271,14 +278,14 @@ class ParameterListWidget(Container):
             self.app.bell()
             return
 
-        children_query: DOMQuery[Label] = highlighted_item_widget.query(Label) # type: ignore
+        children_query: DOMQuery[Label] = highlighted_item_widget.query(Label)  # type: ignore
         if not children_query:
             self.app.bell()
             return
 
         selected_label: Label = children_query.first()
         item_text_renderable = selected_label.renderable
-        item_text_plain = str(item_text_renderable) # Convert RichText or str to plain str
+        item_text_plain = str(item_text_renderable)  # Convert RichText or str to plain str
 
         parsed_names = self._parse_selected_item(item_text_plain)
         if not parsed_names:
@@ -310,16 +317,15 @@ class ParameterListWidget(Container):
 
             else:
                 err_msg = process_result.stderr.strip() if process_result.stderr else "Unknown error"
-                #self._log_error(f"Error describing param {node_name} {param_name}: RC {process_result.returncode}, Err: {err_msg}")
+                # self._log_error(f"Error describing param {node_name} {param_name}: RC {process_result.returncode}, Err: {err_msg}")
                 self.app.push_screen(ParameterValueModal(title="Error", content=f"Could not describe parameter:\n{err_msg}"))
 
         except subprocess.TimeoutExpired:
-            #self._log_error(f"Timeout describing param {node_name} {param_name}")
+            # self._log_error(f"Timeout describing param {node_name} {param_name}")
             self.app.push_screen(ParameterValueModal(title="Error", content="Timeout describing parameter."))
         except Exception as e:
-            #self._log_error(f"Exception describing param {node_name} {param_name}: {e}")
+            # self._log_error(f"Exception describing param {node_name} {param_name}: {e}")
             self.app.push_screen(ParameterValueModal(title="Error", content=f"An error occurred describing parameter: {e}"))
-
 
     def on_unmount(self) -> None:
         pass

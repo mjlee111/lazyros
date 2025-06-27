@@ -7,22 +7,25 @@ from textual.containers import Container
 from textual.widgets import Label, ListItem, ListView
 from rich.markup import escape
 from rich.text import Text as RichText
-
-from utils.ignore_parser import IgnoreParser
-from modals.lifecycle_modal import LifecycleModal 
 from dataclasses import dataclass
+
+from lazyros.utils.ignore_parser import IgnoreParser
+from lazyros.modals.lifecycle_modal import LifecycleModal
 
 import os
 import signal
 
+
 def escape_markup(text: str) -> str:
     return escape(text)
+
 
 @dataclass
 class NodeData:
     name: str
     status: str
     is_lifecycle: bool
+
 
 class NodeListWidget(Container):
     BINDINGS = [
@@ -78,7 +81,7 @@ class NodeListWidget(Container):
 
                 raw_name = node_name[1:] if node_name.startswith("/") else node_name
                 if raw_name not in self.launched_nodes:
-                    
+
                     # Check if the node is a lifecycle node
                     is_lifecycle = False
                     cmd = ["ros2", "node", "info", node_name]
@@ -88,7 +91,7 @@ class NodeListWidget(Container):
                             is_lifecycle = True
                     except subprocess.CalledProcessError:
                         pass
-                    
+
                     self.launched_nodes[raw_name] = NodeData(name=raw_name, status="green", is_lifecycle=is_lifecycle)
                     need_update = True
                 elif self.launched_nodes[raw_name].status != "green":
@@ -157,7 +160,7 @@ class NodeListWidget(Container):
         except Exception as e:
             print(f"[highlight error] {e}")
             self.selected_node_name = None
-            
+
     def action_kill_node(self) -> None:
         try:
             result = subprocess.run(
@@ -175,11 +178,11 @@ class NodeListWidget(Container):
             pass
         except Exception as e:
             pass
-        
+
     def action_start_node(self) -> None:
         if not self.selected_node_name:
             return
-        
+
         node_name = "/"+self.selected_node_name
         self.ros_node.get_logger().info(f"Starting node: {node_name}")
 
@@ -189,7 +192,7 @@ class NodeListWidget(Container):
         else:
             self.ros_node.get_logger().error(f"Starting node: {node_name}")
             print(f"Node {node_name} is not configured for restart.")
-        
+
     def action_show_lifecycle_state(self) -> None:
         """Show a modal with information about the selected node."""
 
