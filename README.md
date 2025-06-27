@@ -27,11 +27,6 @@ A simple and friendly terminal UI for ROS2.
 
 ## Installation
 
-- pipx (recommended)
-  ```shell
-  pipx install lazyros
-  ```
-
 - pip (recommended)
   ```shell
   pip install lazyros
@@ -83,14 +78,6 @@ python lazyros.py
    python lazyros.py
    ```
 
-   
-
-## Tutorial
-
-
-
-
-
 ## Help
 
 - Trouble
@@ -99,3 +86,7 @@ python lazyros.py
 - Request
 
   Any request is welcome, please feel free to request in issue!
+
+
+## Release
+Check [How to release](./docs/release.md).
