@@ -1,6 +1,6 @@
 [project]
 name = "lazyros"
-version = "0.1.9"
+version = "0.1.9.3"
 description = ""
 authors = [
     {name = "Harumo Sasatake",email = "sasatake.harumo@techmagic.co.jp"}
