@@ -52,6 +52,31 @@ python lazyros.py
   - All operations are performed by clicking and using shortcut keys.
 
   - Available shortcut keys are displayed at the bottom left.
+  
+  
+
+## Getting started
+
+1. Run talker demo node
+   ```shell
+   ros2 run demo_nodes_cpp talker
+   ```
+
+2. Run listener demo node
+   ```
+   ros2 run demo_nodes_cpp listener
+   ```
+
+3. Run lazyros
+   ```shell
+   python lazyros.py
+   ```
+
+   
+
+## Tutorial
+
+
 
 
 
