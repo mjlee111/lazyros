@@ -1,0 +1,23 @@
+[project]
+name = "lazyros"
+version = "0.1.0"
+description = ""
+authors = [
+    {name = "Harumo Sasatake",email = "sasatake.harumo@techmagic.co.jp"}
+]
+license = {text = "Apache License 2.0"}
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "pyyaml (>=6.0.2,<7.0.0)",
+    "textual (>=3.5.0,<4.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+
+[tool.poetry.scripts]
+lazyros = "lazyros:lazyros:main"
