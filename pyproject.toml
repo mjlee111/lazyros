@@ -15,7 +15,7 @@ dependencies = [
 keywords = ["lazyros", "ros2", "textual", "cli", "terminal"]
 
 [project.urls]
-Repository = https://github.com/TechMagicKK/lazyros
+Repository = "https://github.com/TechMagicKK/lazyros"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
