@@ -27,11 +27,22 @@ A simple and friendly terminal UI for ROS2.
 
 ## Installation
 
-```shell
-git clone https://github.com/TechMagicKK/lazyros.git
-cd lazyros
-pip install -r requirements.txt
-```
+- pipx (recommended)
+  ```shell
+  pipx install lazyros
+  ```
+
+- pip (recommended)
+  ```shell
+  pip install lazyros
+  ```
+
+- from source
+  ```shell
+  git clone https://github.com/TechMagicKK/lazyros.git
+  cd lazyros
+  pip install -r requirements.txt
+  ```
 
 
 
