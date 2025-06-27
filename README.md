@@ -43,23 +43,13 @@ A simple and friendly terminal UI for ROS2.
 
 ## Usage
 
+Just run following command.
+
 ```shell
-cd lazyros
-python lazyros.py
+lazyros
 ```
 
-#### Details
 
-- running `lazyros`
-  Call `python lazyros.py` in lazyros directory that you downloaded.
-
-- operation
-
-  - All operations are performed by clicking and using shortcut keys.
-
-  - Available shortcut keys are displayed at the bottom left.
-  
-  
 
 ## Getting started
 
@@ -75,8 +65,10 @@ python lazyros.py
 
 3. Run lazyros
    ```shell
-   python lazyros.py
+   lazyros
    ```
+
+
 
 ## Help
 
@@ -88,5 +80,7 @@ python lazyros.py
   Any request is welcome, please feel free to request in issue!
 
 
+
 ## Release
+
 Check [How to release](./docs/release.md).
