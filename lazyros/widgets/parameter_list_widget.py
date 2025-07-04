@@ -94,6 +94,8 @@ class ParameterListWidget(Container):
 
     def on_mount(self) -> None:
         self.set_interval(5, self.trigger_update_list)
+        # Trigger initial update and ensure first item is highlighted
+        self.trigger_update_list()
 
     def _parse_ros2_param_list_output(self, output: str) -> List[str]:
         parsed_params: List[str] = []

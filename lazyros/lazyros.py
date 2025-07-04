@@ -38,7 +38,10 @@ class LazyRosApp(App):
 
     def on_mount(self) -> None:
         """Called when app is mounted. Perform async setup here."""
-        pass
+        # Set initial focus to the first (Nodes) list
+        node_list_widget = self.query_one("#node-list-content")
+        if node_list_widget:
+            node_list_widget.node_list_view.focus()
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""

@@ -61,6 +61,9 @@ class NodeListWidget(Container):
         self.set_interval(5, lambda: asyncio.create_task(self.update_node_list()))
         self.set_interval(1, self._update_if_ready)
         self.node_list_view.focus()
+        # Ensure first item is highlighted on startup
+        if self.node_list_view.children:
+            self.node_list_view.index = 0
 
     async def update_node_list(self) -> None:
         node_set = set(self.launched_nodes.keys())

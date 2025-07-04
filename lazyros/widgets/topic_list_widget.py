@@ -62,7 +62,9 @@ class TopicListWidget(Container):
     def on_mount(self) -> None:
         self._fetch_ros_topics()  # Initial fetch
         self.set_interval(5, self._fetch_ros_topics)  # Fetch new data periodically (increased interval)
-        self.topic_list_view.focus()
+        # Ensure first item is highlighted on startup
+        if self.topic_list_view.children:
+            self.topic_list_view.index = 0
 
     def on_key(self, event: Key) -> None:
         if self.search_input.has_focus:
