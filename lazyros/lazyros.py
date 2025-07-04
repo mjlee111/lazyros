@@ -42,12 +42,10 @@ class LazyRosApp(App):
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
-        print("LazyRosApp.compose: Composing the application layout...")
         yield Header()
 
         with Horizontal():
             with Container(id="left-frame", classes="left-pane"):
-                print("Adding left pane...")
                 with Vertical():
                     with Container(classes="list-container"):
                         yield Static("Nodes", classes="frame-title")
@@ -60,14 +58,12 @@ class LazyRosApp(App):
                         yield ParameterListWidget(self.ros_node, id="parameter-list-content")
 
             with Container(id="right-frame", classes="right-pane"):
-                print("Adding right pane...")
                 yield Static("Logs and Info", classes="frame-title")
                 with TabbedContent("Log", "Info"):
                     yield LogViewWidget(self.ros_node, id="log-view-content")
                     yield InfoViewWidget(self.ros_node, id="info-view-content")
 
         yield Footer()
-        print("Application layout composed.")
 
     def action_toggle_dark(self) -> None:
         """An action to toggle dark mode."""

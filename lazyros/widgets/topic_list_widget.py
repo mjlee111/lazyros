@@ -61,7 +61,7 @@ class TopicListWidget(Container):
 
     def on_mount(self) -> None:
         self._fetch_ros_topics()  # Initial fetch
-        self.set_interval(3, self._fetch_ros_topics)  # Fetch new data periodically (e.g., every 2 seconds)
+        self.set_interval(5, self._fetch_ros_topics)  # Fetch new data periodically (increased interval)
         self.topic_list_view.focus()
 
     def on_key(self, event: Key) -> None:
