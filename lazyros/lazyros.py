@@ -27,6 +27,8 @@ class LazyRosApp(App):
 
     BINDINGS = [
         ("ctrl+q", "quit", "Quit"),
+        ("tab", "focus_next_pane", "Next Pane"),
+        ("shift+tab", "focus_previous_pane", "Previous Pane"),
     ]
 
     CSS_PATH = "lazyros.css"
@@ -35,6 +37,13 @@ class LazyRosApp(App):
         super().__init__()
         self.ros_node = ros_node
         self.restart_config = load_restart_config("config/restart_config.yaml")
+        # List of left pane widgets for tab navigation
+        self.left_pane_widgets = [
+            "#node-list-content",
+            "#topic-list-content", 
+            "#parameter-list-content"
+        ]
+        self.current_pane_index = 0
 
     def on_mount(self) -> None:
         """Called when app is mounted. Perform async setup here."""
@@ -42,6 +51,15 @@ class LazyRosApp(App):
         node_list_widget = self.query_one("#node-list-content")
         if node_list_widget:
             node_list_widget.node_list_view.focus()
+
+    def on_key(self, event) -> None:
+        """Handle key events, override default tab behavior."""
+        if event.key == "tab":
+            self.action_focus_next_pane()
+            event.stop()
+        elif event.key == "shift+tab":
+            self.action_focus_previous_pane()
+            event.stop()
 
     def compose(self) -> ComposeResult:
         """Create child widgets for the app."""
@@ -108,6 +126,51 @@ class LazyRosApp(App):
         """Handle clicks on message type 'links' in the InfoViewWidget."""
         print(f"Message type clicked: {message_type}")
         self.push_screen(MessageModal(message_type))
+
+    def action_focus_next_pane(self) -> None:
+        """Focus the next pane in the left panel (Node -> Topics -> Parameters -> Node)."""
+        self.current_pane_index = (self.current_pane_index + 1) % len(self.left_pane_widgets)
+        self._focus_current_pane()
+
+    def action_focus_previous_pane(self) -> None:
+        """Focus the previous pane in the left panel (Parameters -> Topics -> Node -> Parameters)."""
+        self.current_pane_index = (self.current_pane_index - 1) % len(self.left_pane_widgets)
+        self._focus_current_pane()
+
+    def _focus_current_pane(self) -> None:
+        """Focus the current pane based on current_pane_index."""
+        try:
+            widget_id = self.left_pane_widgets[self.current_pane_index]
+            widget = self.query_one(widget_id)
+            
+            if widget_id == "#node-list-content":
+                widget.node_list_view.focus()
+            elif widget_id == "#topic-list-content":
+                widget.topic_list_view.focus()
+            elif widget_id == "#parameter-list-content":
+                widget.parameter_list_view.focus()
+        except Exception as e:
+            print(f"Error focusing pane: {e}")
+
+    def on_descendant_focus(self, event) -> None:
+        """Update current pane index when a descendant widget receives focus."""
+        try:
+            # Check which pane received focus and update the index
+            focused_widget = event.widget
+            
+            # Check if the focused widget is one of our ListViews
+            node_widget = self.query_one("#node-list-content")
+            topic_widget = self.query_one("#topic-list-content")
+            parameter_widget = self.query_one("#parameter-list-content")
+            
+            if focused_widget == node_widget.node_list_view:
+                self.current_pane_index = 0
+            elif focused_widget == topic_widget.topic_list_view:
+                self.current_pane_index = 1
+            elif focused_widget == parameter_widget.parameter_list_view:
+                self.current_pane_index = 2
+        except Exception:
+            pass  # Ignore errors in focus tracking
 
     # Removed custom run_async method
 

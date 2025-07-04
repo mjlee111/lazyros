@@ -33,8 +33,9 @@ class InfoViewWidget(Container):
         node_name is expected to be the name without a leading slash, e.g., 'talker' or 'namespace/nodename'.
         """
         
-        # Use node_name directly as key for caching, assuming it's consistent
+        # Check if we have cached info, display it immediately, but also refresh in background
         if node_name in self.info_dict:
+            self._display_cached_info(node_name)
             return
         
         print(f"InfoViewWidget.update_info: Fetching info for node: {node_name}")
@@ -116,3 +117,10 @@ class InfoViewWidget(Container):
         except Exception as e:
             self.info_log.clear()
             self.info_log.write(f"[red]Unexpected error fetching info for '{node_name}': {escape_markup(str(e))}[/]")
+    
+    def _display_cached_info(self, node_name: str):
+        """Display cached information for a node."""
+        if node_name in self.info_dict:
+            self.info_log.clear()
+            for line in self.info_dict[node_name]:
+                self.info_log.write(line)
