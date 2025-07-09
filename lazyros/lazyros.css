@@ -56,3 +56,8 @@ Horizontal {
     height: 1fr; /* Allow containers to share vertical space */
 }
 
+/* Hidden class for switching between tab configurations */
+.hidden {
+    display: none;
+}
+

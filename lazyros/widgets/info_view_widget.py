@@ -124,3 +124,34 @@ class InfoViewWidget(Container):
             self.info_log.clear()
             for line in self.info_dict[node_name]:
                 self.info_log.write(line)
+
+    def update_topic_info(self, topic_name: str):
+        """Update the displayed topic information using `ros2 topic info` output."""
+        print(f"InfoViewWidget.update_topic_info: Fetching info for topic: {topic_name}")
+        
+        try:
+            # Use ros2 topic info command to get topic information
+            command = ["ros2", "topic", "info", topic_name]
+            result = subprocess.run(command, capture_output=True, text=True, check=True, timeout=5)
+            
+            self.info_log.clear()
+            self.info_log.write(f"[bold]Topic Information: {escape_markup(topic_name)}[/bold]")
+            self.info_log.write("")
+            
+            # Display the topic info output
+            for line in result.stdout.splitlines():
+                self.info_log.write(escape_markup(line))
+            
+        except FileNotFoundError:
+            self.info_log.clear()
+            self.info_log.write("[red]ros2 command not found. Ensure ROS 2 is installed and sourced.[/]")
+        except subprocess.TimeoutExpired:
+            self.info_log.clear()
+            self.info_log.write(f"[red]Timeout fetching info for topic: {topic_name}[/]")
+        except subprocess.CalledProcessError as e:
+            self.info_log.clear()
+            self.info_log.write(f"[red]Error fetching info for topic '{topic_name}':[/]")
+            self.info_log.write(escape_markup(e.stderr or e.stdout))
+        except Exception as e:
+            self.info_log.clear()
+            self.info_log.write(f"[red]Unexpected error fetching info for '{topic_name}': {escape_markup(str(e))}[/]")
