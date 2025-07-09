@@ -59,7 +59,7 @@ class TopicListWidget(Container):
         self.selected_topic_name = None
         self._current_topic = None
         self._highlight_task = None
-        self._highlight_delay = 0.5  # 0.5 seconds like NodeListWidget
+        self._highlight_delay = 1.0  # Debounce delay: update only after 0.5 seconds of no movement
 
     def compose(self) -> ComposeResult:
         yield Label("ROS Topics:")

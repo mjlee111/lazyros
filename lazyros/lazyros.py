@@ -30,6 +30,9 @@ class LazyRosApp(App):
         ("ctrl+q", "quit", "Quit"),
         ("tab", "focus_next_pane", "Next Pane"),
         ("shift+tab", "focus_previous_pane", "Previous Pane"),
+        ("bracketleft", "previous_tab", "Previous Tab"),
+        ("bracketright", "next_tab", "Next Tab"),
+        ("enter", "focus_right_pane", "Focus Right Pane"),
     ]
 
     CSS_PATH = "lazyros.css"
@@ -51,6 +54,8 @@ class LazyRosApp(App):
         self.current_selected_topic = None
         # Timer for delayed topic updates
         self._topic_update_timer = None
+        # Track which pane is focused (left or right)
+        self.focused_pane = "left"  # "left" or "right"
 
     def on_mount(self) -> None:
         """Called when app is mounted. Perform async setup here."""
@@ -61,11 +66,25 @@ class LazyRosApp(App):
 
     def on_key(self, event) -> None:
         """Handle key events, override default tab behavior."""
+        print(f"[DEBUG] Key pressed: '{event.key}', focused_pane: {self.focused_pane}")
+        
         if event.key == "tab":
             self.action_focus_next_pane()
             event.stop()
         elif event.key == "shift+tab":
             self.action_focus_previous_pane()
+            event.stop()
+        elif event.key == "enter" and self.focused_pane == "left":
+            print("[DEBUG] Enter key pressed in left pane")
+            self.action_focus_right_pane()
+            event.stop()
+        elif event.key == "bracketleft" and self.focused_pane == "left":
+            print("[DEBUG] [ key pressed in left pane")
+            self.action_previous_tab()
+            event.stop()
+        elif event.key == "bracketright" and self.focused_pane == "left":
+            print("[DEBUG] ] key pressed in left pane")
+            self.action_next_tab()
             event.stop()
 
     def compose(self) -> ComposeResult:
@@ -115,6 +134,7 @@ class LazyRosApp(App):
         left_pane.styles.border = ("heavy", "white")
         right_pane.styles.border = ("solid", "white")
 
+        self.focused_pane = "left"
         left_pane.focus()
 
     def action_focus_right_pane(self) -> None:
@@ -125,7 +145,17 @@ class LazyRosApp(App):
         left_pane.styles.border = ("solid", "white")
         right_pane.styles.border = ("heavy", "white")
 
-        right_pane.focus()
+        self.focused_pane = "right"
+        # Focus the active tabbed content in the right pane
+        try:
+            if self.current_right_pane_config == "topics":
+                topic_tabs = self.query_one("#topic-tabs")
+                topic_tabs.focus()
+            else:
+                default_tabs = self.query_one("#default-tabs")
+                default_tabs.focus()
+        except Exception:
+            right_pane.focus()
 
     def action_handle_topic_click(self, topic_name: str) -> None:
         """Handle clicks on topic 'links' in the InfoViewWidget."""
@@ -195,20 +225,120 @@ class LazyRosApp(App):
     
 
     def action_focus_next_pane(self) -> None:
-        """Focus the next pane in the left panel (Node -> Topics -> Parameters -> Node)."""
-        self.current_pane_index = (self.current_pane_index + 1) % len(self.left_pane_widgets)
-        self._focus_current_pane()
+        """Focus the next pane. If on left pane, move to next left pane. If on right pane, move to left pane."""
+        if self.focused_pane == "right":
+            # If on right pane, move to left pane
+            self.action_focus_left_pane()
+            self._focus_current_pane()
+        else:
+            # If on left pane, move to next left pane
+            self.current_pane_index = (self.current_pane_index + 1) % len(self.left_pane_widgets)
+            self._focus_current_pane()
 
     def action_focus_previous_pane(self) -> None:
         """Focus the previous pane in the left panel (Parameters -> Topics -> Node -> Parameters)."""
         self.current_pane_index = (self.current_pane_index - 1) % len(self.left_pane_widgets)
         self._focus_current_pane()
+    
+    def action_previous_tab(self) -> None:
+        """Switch to previous tab in the right pane."""
+        if self.focused_pane == "left":
+            # Only work if left pane has focus
+            try:
+                print(f"[DEBUG] action_previous_tab called, config: {self.current_right_pane_config}")
+                if self.current_right_pane_config == "topics":
+                    topic_tabs = self.query_one("#topic-tabs")
+                    print(f"[DEBUG] Found topic_tabs: {topic_tabs}, current active: {topic_tabs.active}")
+                    # Get all tab panes
+                    tab_panes = topic_tabs.children
+                    current_active = topic_tabs.active
+                    pane_ids = [pane.id for pane in tab_panes]
+                    print(f"[DEBUG] Available tabs: {pane_ids}")
+                    
+                    if current_active in pane_ids:
+                        current_index = pane_ids.index(current_active)
+                        new_index = (current_index - 1) % len(pane_ids)
+                        topic_tabs.active = pane_ids[new_index]
+                        print(f"[DEBUG] Switched to tab: {topic_tabs.active}")
+                    else:
+                        print(f"[DEBUG] Current active tab not found in pane IDs")
+                else:
+                    default_tabs = self.query_one("#default-tabs")
+                    print(f"[DEBUG] Found default_tabs: {default_tabs}, current active: {default_tabs.active}")
+                    # Get all tab panes
+                    tab_panes = default_tabs.children
+                    current_active = default_tabs.active
+                    pane_ids = [pane.id for pane in tab_panes]
+                    print(f"[DEBUG] Available tabs: {pane_ids}")
+                    
+                    if current_active in pane_ids:
+                        current_index = pane_ids.index(current_active)
+                        new_index = (current_index - 1) % len(pane_ids)
+                        default_tabs.active = pane_ids[new_index]
+                        print(f"[DEBUG] Switched to tab: {default_tabs.active}")
+                    else:
+                        print(f"[DEBUG] Current active tab not found in pane IDs")
+            except Exception as e:
+                print(f"Error switching to previous tab: {e}")
+                import traceback
+                traceback.print_exc()
+    
+    def action_next_tab(self) -> None:
+        """Switch to next tab in the right pane."""
+        if self.focused_pane == "left":
+            # Only work if left pane has focus
+            try:
+                print(f"[DEBUG] action_next_tab called, config: {self.current_right_pane_config}")
+                if self.current_right_pane_config == "topics":
+                    topic_tabs = self.query_one("#topic-tabs")
+                    print(f"[DEBUG] Found topic_tabs: {topic_tabs}, current active: {topic_tabs.active}")
+                    # Get all tab panes
+                    tab_panes = topic_tabs.children
+                    current_active = topic_tabs.active
+                    pane_ids = [pane.id for pane in tab_panes]
+                    print(f"[DEBUG] Available tabs: {pane_ids}")
+                    
+                    if current_active in pane_ids:
+                        current_index = pane_ids.index(current_active)
+                        new_index = (current_index + 1) % len(pane_ids)
+                        topic_tabs.active = pane_ids[new_index]
+                        print(f"[DEBUG] Switched to tab: {topic_tabs.active}")
+                    else:
+                        print(f"[DEBUG] Current active tab not found in pane IDs")
+                else:
+                    default_tabs = self.query_one("#default-tabs")
+                    print(f"[DEBUG] Found default_tabs: {default_tabs}, current active: {default_tabs.active}")
+                    # Get all tab panes
+                    tab_panes = default_tabs.children
+                    current_active = default_tabs.active
+                    pane_ids = [pane.id for pane in tab_panes]
+                    print(f"[DEBUG] Available tabs: {pane_ids}")
+                    
+                    if current_active in pane_ids:
+                        current_index = pane_ids.index(current_active)
+                        new_index = (current_index + 1) % len(pane_ids)
+                        default_tabs.active = pane_ids[new_index]
+                        print(f"[DEBUG] Switched to tab: {default_tabs.active}")
+                    else:
+                        print(f"[DEBUG] Current active tab not found in pane IDs")
+            except Exception as e:
+                print(f"Error switching to next tab: {e}")
+                import traceback
+                traceback.print_exc()
 
     def _focus_current_pane(self) -> None:
         """Focus the current pane based on current_pane_index."""
         try:
             widget_id = self.left_pane_widgets[self.current_pane_index]
             widget = self.query_one(widget_id)
+            
+            # Set focus to left pane and update visuals
+            self.focused_pane = "left"
+            print(f"[DEBUG] _focus_current_pane: focused_pane set to 'left', widget_id: {widget_id}")
+            left_pane: Container = self.query_one("#left-frame")
+            right_pane: Container = self.query_one("#right-frame")
+            left_pane.styles.border = ("heavy", "white")
+            right_pane.styles.border = ("solid", "white")
             
             if widget_id == "#node-list-content":
                 widget.node_list_view.focus()
@@ -337,18 +467,31 @@ class LazyRosApp(App):
             topic_widget = self.query_one("#topic-list-content")
             parameter_widget = self.query_one("#parameter-list-content")
             
+            # Check if focus is on left pane widgets
             if focused_widget == node_widget.node_list_view:
                 if self.current_pane_index != 0:
                     self.current_pane_index = 0
                     self._update_right_pane_for_nodes()
+                self.focused_pane = "left"
             elif focused_widget == topic_widget.topic_list_view:
                 if self.current_pane_index != 1:
                     self.current_pane_index = 1
                     self._update_right_pane_for_topics()
+                self.focused_pane = "left"
             elif focused_widget == parameter_widget.parameter_list_view:
                 if self.current_pane_index != 2:
                     self.current_pane_index = 2
                     self._update_right_pane_for_parameters()
+                self.focused_pane = "left"
+            else:
+                # Check if focus is on right pane widgets
+                try:
+                    default_tabs = self.query_one("#default-tabs")
+                    topic_tabs = self.query_one("#topic-tabs")
+                    if focused_widget == default_tabs or focused_widget == topic_tabs or focused_widget.parent == default_tabs or focused_widget.parent == topic_tabs:
+                        self.focused_pane = "right"
+                except Exception:
+                    pass
         except Exception:
             pass  # Ignore errors in focus tracking
     
