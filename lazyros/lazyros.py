@@ -10,6 +10,7 @@ from textual.widgets import (
     Header,
     Static,
     TabbedContent,
+    TabPane,
 )
 
 from lazyros.widgets.node_list_widget import NodeListWidget
@@ -30,12 +31,15 @@ class LazyRosApp(App):
         ("ctrl+q", "quit", "Quit"),
         ("tab", "focus_next_pane", "Next Pane"),
         ("shift+tab", "focus_previous_pane", "Previous Pane"),
-        ("bracketleft", "previous_tab", "Previous Tab"),
-        ("bracketright", "next_tab", "Next Tab"),
+        ("[", "previous_tab", "Previous Tab"),
+        ("]", "next_tab", "Next Tab"),
         ("enter", "focus_right_pane", "Focus Right Pane"),
     ]
 
     CSS_PATH = "lazyros.css"
+    
+    NODE_TAB_PANE_ID_LIST = ["log", "info"]
+    TOPIC_TAB_PANE_ID_LIST = ["info", "echo"]
 
     def __init__(self, ros_node: Node, restart_config=None):
         super().__init__()
@@ -66,8 +70,6 @@ class LazyRosApp(App):
 
     def on_key(self, event) -> None:
         """Handle key events, override default tab behavior."""
-        print(f"[DEBUG] Key pressed: '{event.key}', focused_pane: {self.focused_pane}")
-        
         if event.key == "tab":
             self.action_focus_next_pane()
             event.stop()
@@ -75,14 +77,14 @@ class LazyRosApp(App):
             self.action_focus_previous_pane()
             event.stop()
         elif event.key == "enter" and self.focused_pane == "left":
+            self.notify("focus_right_pane")
             print("[DEBUG] Enter key pressed in left pane")
             self.action_focus_right_pane()
             event.stop()
-        elif event.key == "bracketleft" and self.focused_pane == "left":
-            print("[DEBUG] [ key pressed in left pane")
+        elif event.key == "[":
             self.action_previous_tab()
             event.stop()
-        elif event.key == "bracketright" and self.focused_pane == "left":
+        elif event.key == "]":
             print("[DEBUG] ] key pressed in left pane")
             self.action_next_tab()
             event.stop()
@@ -107,11 +109,15 @@ class LazyRosApp(App):
             with Container(id="right-frame", classes="right-pane"):
                 yield Static("Logs and Info", classes="frame-title", id="right-pane-title")
                 with TabbedContent("Log", "Info", id="default-tabs"):
-                    yield LogViewWidget(self.ros_node, id="log-view-content")
-                    yield InfoViewWidget(self.ros_node, id="info-view-content")
+                    with TabPane("Log", id="log"):
+                        yield LogViewWidget(self.ros_node, id="log-view-content")
+                    with TabPane("Info", id="info"):
+                        yield InfoViewWidget(self.ros_node, id="info-view-content")
                 with TabbedContent("Info", "Echo", id="topic-tabs", classes="hidden"):
-                    yield InfoViewWidget(self.ros_node, id="topic-info-view-content")
-                    yield EchoViewWidget(self.ros_node, id="echo-view-content")
+                    with TabPane("Info", id="info"):
+                        yield InfoViewWidget(self.ros_node, id="topic-info-view-content")
+                    with TabPane("Echo", id="echo"):
+                        yield EchoViewWidget(self.ros_node, id="echo-view-content")
 
         yield Footer()
 
@@ -242,89 +248,68 @@ class LazyRosApp(App):
     
     def action_previous_tab(self) -> None:
         """Switch to previous tab in the right pane."""
-        if self.focused_pane == "left":
-            # Only work if left pane has focus
-            try:
-                print(f"[DEBUG] action_previous_tab called, config: {self.current_right_pane_config}")
-                if self.current_right_pane_config == "topics":
-                    topic_tabs = self.query_one("#topic-tabs")
-                    print(f"[DEBUG] Found topic_tabs: {topic_tabs}, current active: {topic_tabs.active}")
-                    # Get all tab panes
-                    tab_panes = topic_tabs.children
-                    current_active = topic_tabs.active
-                    pane_ids = [pane.id for pane in tab_panes]
-                    print(f"[DEBUG] Available tabs: {pane_ids}")
-                    
-                    if current_active in pane_ids:
-                        current_index = pane_ids.index(current_active)
-                        new_index = (current_index - 1) % len(pane_ids)
-                        topic_tabs.active = pane_ids[new_index]
-                        print(f"[DEBUG] Switched to tab: {topic_tabs.active}")
-                    else:
-                        print(f"[DEBUG] Current active tab not found in pane IDs")
+        try:
+            print(f"[DEBUG] action_previous_tab called, config: {self.current_right_pane_config}")
+            if self.current_right_pane_config == "topics":
+                topic_tabs = self.query_one("#topic-tabs")
+                print(f"[DEBUG] Found topic_tabs: {topic_tabs}, current active: {topic_tabs.active}")
+                # Get all tab panes
+                tab_panes = topic_tabs.children
+                current_active = topic_tabs.active
+                pane_ids = [pane.id for pane in tab_panes]
+                print(f"[DEBUG] Available tabs: {pane_ids}")
+                
+                if current_active in pane_ids:
+                    current_index = pane_ids.index(current_active)
+                    new_index = (current_index - 1) % len(pane_ids)
+                    topic_tabs.active = pane_ids[new_index]
+                    print(f"[DEBUG] Switched to tab: {topic_tabs.active}")
                 else:
-                    default_tabs = self.query_one("#default-tabs")
-                    print(f"[DEBUG] Found default_tabs: {default_tabs}, current active: {default_tabs.active}")
-                    # Get all tab panes
-                    tab_panes = default_tabs.children
-                    current_active = default_tabs.active
-                    pane_ids = [pane.id for pane in tab_panes]
-                    print(f"[DEBUG] Available tabs: {pane_ids}")
-                    
-                    if current_active in pane_ids:
-                        current_index = pane_ids.index(current_active)
-                        new_index = (current_index - 1) % len(pane_ids)
-                        default_tabs.active = pane_ids[new_index]
-                        print(f"[DEBUG] Switched to tab: {default_tabs.active}")
-                    else:
-                        print(f"[DEBUG] Current active tab not found in pane IDs")
-            except Exception as e:
-                print(f"Error switching to previous tab: {e}")
-                import traceback
-                traceback.print_exc()
+                    print(f"[DEBUG] Current active tab not found in pane IDs")
+            else:
+                default_tabs = self.query_one("#default-tabs")
+                current_tab_= default_tabs.active
+                if self.NODE_TAB_PANE_ID_LIST[0] == current_tab_:
+                    return
+                
+                for i in self.NODE_TAB_PANE_ID_LIST[1:]:
+                    if current_tab_ == i:
+                        default_tabs.active = self.NODE_TAB_PANE_ID_LIST[self.NODE_TAB_PANE_ID_LIST.index(i) - 1]
+        except Exception as e:
+            print(f"Error switching to previous tab: {e}")
+            import traceback
+            traceback.print_exc()
     
     def action_next_tab(self) -> None:
         """Switch to next tab in the right pane."""
-        if self.focused_pane == "left":
-            # Only work if left pane has focus
-            try:
-                print(f"[DEBUG] action_next_tab called, config: {self.current_right_pane_config}")
-                if self.current_right_pane_config == "topics":
-                    topic_tabs = self.query_one("#topic-tabs")
-                    print(f"[DEBUG] Found topic_tabs: {topic_tabs}, current active: {topic_tabs.active}")
-                    # Get all tab panes
-                    tab_panes = topic_tabs.children
-                    current_active = topic_tabs.active
-                    pane_ids = [pane.id for pane in tab_panes]
-                    print(f"[DEBUG] Available tabs: {pane_ids}")
-                    
-                    if current_active in pane_ids:
-                        current_index = pane_ids.index(current_active)
-                        new_index = (current_index + 1) % len(pane_ids)
-                        topic_tabs.active = pane_ids[new_index]
-                        print(f"[DEBUG] Switched to tab: {topic_tabs.active}")
-                    else:
-                        print(f"[DEBUG] Current active tab not found in pane IDs")
+        try:
+            if self.current_right_pane_config == "topics":
+                topic_tabs = self.query_one("#topic-tabs")
+                # Get all tab panes
+                tab_panes = topic_tabs.children
+                current_active = topic_tabs.active
+                pane_ids = [pane.id for pane in tab_panes]
+                print(f"[DEBUG] Available tabs: {pane_ids}")
+                
+                if current_active in pane_ids:
+                    current_index = pane_ids.index(current_active)
+                    new_index = (current_index + 1) % len(pane_ids)
+                    topic_tabs.active = pane_ids[new_index]
+                    print(f"[DEBUG] Switched to tab: {topic_tabs.active}")
                 else:
-                    default_tabs = self.query_one("#default-tabs")
-                    print(f"[DEBUG] Found default_tabs: {default_tabs}, current active: {default_tabs.active}")
-                    # Get all tab panes
-                    tab_panes = default_tabs.children
-                    current_active = default_tabs.active
-                    pane_ids = [pane.id for pane in tab_panes]
-                    print(f"[DEBUG] Available tabs: {pane_ids}")
-                    
-                    if current_active in pane_ids:
-                        current_index = pane_ids.index(current_active)
-                        new_index = (current_index + 1) % len(pane_ids)
-                        default_tabs.active = pane_ids[new_index]
-                        print(f"[DEBUG] Switched to tab: {default_tabs.active}")
-                    else:
-                        print(f"[DEBUG] Current active tab not found in pane IDs")
-            except Exception as e:
-                print(f"Error switching to next tab: {e}")
-                import traceback
-                traceback.print_exc()
+                    print(f"[DEBUG] Current active tab not found in pane IDs")
+            else:
+                default_tabs = self.query_one("#default-tabs")
+                current_tab_= default_tabs.active
+                if self.NODE_TAB_PANE_ID_LIST[-1] == current_tab_:
+                    return
+                
+                for i in self.NODE_TAB_PANE_ID_LIST[:-1]:
+                    if current_tab_ == i:
+                        default_tabs.active = self.NODE_TAB_PANE_ID_LIST[self.NODE_TAB_PANE_ID_LIST.index(i) + 1]
+            print(f"Error switching to next tab: {e}")
+            import traceback
+            traceback.print_exc()
 
     def _focus_current_pane(self) -> None:
         """Focus the current pane based on current_pane_index."""
