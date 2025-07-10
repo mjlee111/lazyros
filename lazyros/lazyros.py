@@ -307,6 +307,7 @@ class LazyRosApp(App):
                 for i in self.NODE_TAB_PANE_ID_LIST[:-1]:
                     if current_tab_ == i:
                         default_tabs.active = self.NODE_TAB_PANE_ID_LIST[self.NODE_TAB_PANE_ID_LIST.index(i) + 1]
+        except Exception as e:
             print(f"Error switching to next tab: {e}")
             import traceback
             traceback.print_exc()
