@@ -82,6 +82,8 @@ class ParameterListWidget(Container):
         self._is_updating = False
         self._get_value_thread: Optional[threading.Thread] = None
         self.ignore_parser = IgnoreParser('config/display_ignore.yaml')  # Instantiate IgnoreParser
+        self.selected_parameter_text = None
+        self._current_parameter = None
 
     def _log_error(self, msg: str):
         if hasattr(self.ros_node, 'get_logger'):
@@ -328,6 +330,47 @@ class ParameterListWidget(Container):
         except Exception as e:
             # self._log_error(f"Exception describing param {node_name} {param_name}: {e}")
             self.app.push_screen(ParameterValueModal(title="Error", content=f"An error occurred describing parameter: {e}"))
+
+    def on_list_view_highlighted(self, event):
+        """Handle when a parameter is highlighted/selected in the ListView."""
+        try:
+            index = self.parameter_list_view.index
+            
+            if index is None or index < 0 or index >= len(self.parameter_list_view.children):
+                self.selected_parameter_text = None
+                return
+            
+            selected_item = self.parameter_list_view.children[index]
+            if not selected_item.children:
+                self.selected_parameter_text = None
+                return
+            
+            child = selected_item.children[0]
+            parameter_text = str(child.renderable).strip()
+            
+            # Skip if same parameter is selected
+            if self._current_parameter == parameter_text:
+                return
+                
+            # Only process if it's a valid parameter (contains ":")
+            if ":" in parameter_text and not parameter_text.startswith("["):
+                self.selected_parameter_text = parameter_text
+                self._current_parameter = parameter_text
+                
+                # Always notify the main app about the parameter selection
+                if hasattr(self.app, 'update_parameter_display'):
+                    self.app.update_parameter_display(parameter_text)
+            else:
+                self.selected_parameter_text = None
+                self._current_parameter = None
+                
+        except Exception as e:
+            self.selected_parameter_text = None
+            self._current_parameter = None
+
+    def on_list_view_selected(self, event):
+        """Handle when a parameter is selected in the ListView."""
+        self.on_list_view_highlighted(event)
 
     def on_unmount(self) -> None:
         pass

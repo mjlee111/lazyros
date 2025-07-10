@@ -155,3 +155,44 @@ class InfoViewWidget(Container):
         except Exception as e:
             self.info_log.clear()
             self.info_log.write(f"[red]Unexpected error fetching info for '{topic_name}': {escape_markup(str(e))}[/]")
+    
+    def update_parameter_info(self, parameter_text: str):
+        """Update the displayed parameter information using `ros2 param describe` output."""
+        
+        try:
+            # Parse the parameter text to extract node name and parameter name
+            import re
+            match = re.fullmatch(r"([^:]+):\s*(.+)", parameter_text)
+            if not match:
+                self.info_log.clear()
+                self.info_log.write(f"[red]Invalid parameter format: {escape_markup(parameter_text)}[/]")
+                return
+                
+            node_name = match.group(1).strip()
+            param_name = match.group(2).strip()
+            
+            # Use ros2 param describe command to get parameter description
+            command = ["ros2", "param", "describe", node_name, param_name]
+            result = subprocess.run(command, capture_output=True, text=True, check=True, timeout=5)
+            
+            self.info_log.clear()
+            self.info_log.write(f"[bold]Parameter Information: {escape_markup(param_name)}[/bold]")
+            self.info_log.write(f"[bold]Node: {escape_markup(node_name)}[/bold]")
+            self.info_log.write("")
+            
+            # Display the parameter description output
+            for line in result.stdout.splitlines():
+                self.info_log.write(escape_markup(line))
+            
+        except FileNotFoundError:
+            self.info_log.clear()
+            self.info_log.write("[red]ros2 command not found. Ensure ROS 2 is installed and sourced.[/]")
+        except subprocess.TimeoutExpired:
+            self.info_log.clear()
+            self.info_log.write(f"[red]Timeout fetching description for parameter: {escape_markup(parameter_text)}[/]")
+        except subprocess.CalledProcessError as e:
+            self.info_log.clear()
+            self.info_log.write(f"[red]Error fetching parameter description: {escape_markup(e.stderr or str(e))}[/]")
+        except Exception as e:
+            self.info_log.clear()
+            self.info_log.write(f"[red]Error fetching parameter description: {escape_markup(str(e))}[/]")

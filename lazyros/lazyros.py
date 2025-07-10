@@ -118,6 +118,11 @@ class LazyRosApp(App):
                         yield InfoViewWidget(self.ros_node, id="topic-info-view-content")
                     with TabPane("Echo", id="echo"):
                         yield EchoViewWidget(self.ros_node, id="echo-view-content")
+                with TabbedContent("Info", "Value", id="parameter-tabs", classes="hidden"):
+                    with TabPane("Info", id="info"):
+                        yield InfoViewWidget(self.ros_node, id="parameter-info-view-content")
+                    with TabPane("Value", id="value"):
+                        yield EchoViewWidget(self.ros_node, id="parameter-value-view-content")
 
         yield Footer()
 
@@ -157,6 +162,9 @@ class LazyRosApp(App):
             if self.current_right_pane_config == "topics":
                 topic_tabs = self.query_one("#topic-tabs")
                 topic_tabs.focus()
+            elif self.current_right_pane_config == "parameters":
+                parameter_tabs = self.query_one("#parameter-tabs")
+                parameter_tabs.focus()
             else:
                 default_tabs = self.query_one("#default-tabs")
                 default_tabs.focus()
@@ -197,6 +205,24 @@ class LazyRosApp(App):
         except Exception as e:
             print(f"[MAIN APP] Error updating topic display: {e}")
     
+    def update_parameter_display(self, parameter_text: str) -> None:
+        """Update the parameter-specific Info and Value tabs with the selected parameter."""
+        try:
+            # Store the current parameter immediately (no delay)
+            self.current_selected_parameter = parameter_text
+            
+            # Only update if we're currently in parameter mode
+            if self.current_right_pane_config == "parameters":
+                # Cancel previous timer if exists
+                if hasattr(self, '_parameter_update_timer') and self._parameter_update_timer is not None:
+                    self._parameter_update_timer.cancel()
+                
+                # Set new timer for 1 second delay
+                self._parameter_update_timer = self.set_timer(1.0, self._delayed_parameter_update)
+                
+        except Exception as e:
+            pass
+    
     def _delayed_topic_update(self) -> None:
         """Delayed update for both Info and Echo tabs after 1 second."""
         try:
@@ -228,6 +254,29 @@ class LazyRosApp(App):
                 
         except Exception as e:
             print(f"[MAIN APP] Error in delayed topic update: {e}")
+    
+    def _delayed_parameter_update(self) -> None:
+        """Delayed update for both Info and Value tabs after 1 second."""
+        try:
+            if self.current_right_pane_config == "parameters" and hasattr(self, 'current_selected_parameter') and self.current_selected_parameter:
+                parameter_text = self.current_selected_parameter
+                
+                # Update Info tab with parameter description
+                try:
+                    info_widget = self.query_one("#parameter-info-view-content")
+                    info_widget.update_parameter_info(parameter_text)
+                except Exception:
+                    pass
+                
+                # Update Value tab with parameter value
+                try:
+                    value_widget = self.query_one("#parameter-value-view-content")
+                    value_widget.display_parameter_value(parameter_text)
+                except Exception:
+                    pass
+                
+        except Exception:
+            pass
     
 
     def action_focus_next_pane(self) -> None:
@@ -266,6 +315,22 @@ class LazyRosApp(App):
                     print(f"[DEBUG] Switched to tab: {topic_tabs.active}")
                 else:
                     print(f"[DEBUG] Current active tab not found in pane IDs")
+            elif self.current_right_pane_config == "parameters":
+                parameter_tabs = self.query_one("#parameter-tabs")
+                print(f"[DEBUG] Found parameter_tabs: {parameter_tabs}, current active: {parameter_tabs.active}")
+                # Get all tab panes
+                tab_panes = parameter_tabs.children
+                current_active = parameter_tabs.active
+                pane_ids = [pane.id for pane in tab_panes]
+                print(f"[DEBUG] Available tabs: {pane_ids}")
+                
+                if current_active in pane_ids:
+                    current_index = pane_ids.index(current_active)
+                    new_index = (current_index - 1) % len(pane_ids)
+                    parameter_tabs.active = pane_ids[new_index]
+                    print(f"[DEBUG] Switched to tab: {parameter_tabs.active}")
+                else:
+                    print(f"[DEBUG] Current active tab not found in pane IDs")
             else:
                 default_tabs = self.query_one("#default-tabs")
                 current_tab_= default_tabs.active
@@ -296,6 +361,21 @@ class LazyRosApp(App):
                     new_index = (current_index + 1) % len(pane_ids)
                     topic_tabs.active = pane_ids[new_index]
                     print(f"[DEBUG] Switched to tab: {topic_tabs.active}")
+                else:
+                    print(f"[DEBUG] Current active tab not found in pane IDs")
+            elif self.current_right_pane_config == "parameters":
+                parameter_tabs = self.query_one("#parameter-tabs")
+                # Get all tab panes
+                tab_panes = parameter_tabs.children
+                current_active = parameter_tabs.active
+                pane_ids = [pane.id for pane in tab_panes]
+                print(f"[DEBUG] Available tabs: {pane_ids}")
+                
+                if current_active in pane_ids:
+                    current_index = pane_ids.index(current_active)
+                    new_index = (current_index + 1) % len(pane_ids)
+                    parameter_tabs.active = pane_ids[new_index]
+                    print(f"[DEBUG] Switched to tab: {parameter_tabs.active}")
                 else:
                     print(f"[DEBUG] Current active tab not found in pane IDs")
             else:
@@ -397,23 +477,45 @@ class LazyRosApp(App):
             print(f"Error updating right pane for nodes: {e}")
     
     def _update_right_pane_for_parameters(self) -> None:
-        """Update right pane to show Log and Info tabs for Parameters."""
+        """Update right pane to show Info and Value tabs for Parameters."""
+        print("[MAIN APP] _update_right_pane_for_parameters called!")
         try:
             # Stop echo if it's running
             self._stop_topic_echo()
             
             # Update title
             title_widget = self.query_one("#right-pane-title")
-            title_widget.update("Logs and Info")
+            title_widget.update("Parameter Info and Value")
             
-            # Show default tabs and hide topic tabs
+            # Hide default tabs and topic tabs, show parameter tabs
             default_tabs = self.query_one("#default-tabs")
             topic_tabs = self.query_one("#topic-tabs")
+            parameter_tabs = self.query_one("#parameter-tabs")
             
-            default_tabs.remove_class("hidden")
+            default_tabs.add_class("hidden")
             topic_tabs.add_class("hidden")
+            parameter_tabs.remove_class("hidden")
             
-            self.current_right_pane_config = "default"
+            self.current_right_pane_config = "parameters"
+            print(f"[MAIN APP] current_right_pane_config set to: {self.current_right_pane_config}")
+            
+            # Check if there's a currently selected parameter and display it immediately
+            try:
+                parameter_widget = self.query_one("#parameter-list-content")
+                if parameter_widget.parameter_list_view.index is not None:
+                    index = parameter_widget.parameter_list_view.index
+                    if 0 <= index < len(parameter_widget.parameter_list_view.children):
+                        selected_item = parameter_widget.parameter_list_view.children[index]
+                        if selected_item.children:
+                            child = selected_item.children[0]
+                            parameter_text = str(child.renderable).strip()
+                            self.update_parameter_display(parameter_text)
+                # If we have a previously stored parameter, use that
+                elif hasattr(self, 'current_selected_parameter') and self.current_selected_parameter:
+                    self.update_parameter_display(self.current_selected_parameter)
+            except Exception:
+                pass
+                
         except Exception as e:
             print(f"Error updating right pane for parameters: {e}")
     
@@ -474,7 +576,9 @@ class LazyRosApp(App):
                 try:
                     default_tabs = self.query_one("#default-tabs")
                     topic_tabs = self.query_one("#topic-tabs")
-                    if focused_widget == default_tabs or focused_widget == topic_tabs or focused_widget.parent == default_tabs or focused_widget.parent == topic_tabs:
+                    parameter_tabs = self.query_one("#parameter-tabs")
+                    if (focused_widget == default_tabs or focused_widget == topic_tabs or focused_widget == parameter_tabs or
+                        focused_widget.parent == default_tabs or focused_widget.parent == topic_tabs or focused_widget.parent == parameter_tabs):
                         self.focused_pane = "right"
                 except Exception:
                     pass
