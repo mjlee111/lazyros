@@ -144,48 +144,4 @@ class EchoViewWidget(Container):
     def get_update_rate(self) -> float:
         """Get the current update rate in Hz."""
         return self.update_rate
-    
-    def display_parameter_value(self, parameter_text: str):
-        """Display the value of a parameter using `ros2 param get` command."""
-        
-        try:
-            # Parse the parameter text to extract node name and parameter name
-            import re
-            match = re.fullmatch(r"([^:]+):\s*(.+)", parameter_text)
-            if not match:
-                self.echo_log.clear()
-                self.echo_log.write(f"[red]Invalid parameter format: {escape_markup(parameter_text)}[/]")
-                return
-                
-            node_name = match.group(1).strip()
-            param_name = match.group(2).strip()
-            
-            # Stop any ongoing echo process
-            if self.is_echoing:
-                self.stop_echo()
-            
-            # Use ros2 param get command to get parameter value
-            command = ["ros2", "param", "get", node_name, param_name]
-            result = subprocess.run(command, capture_output=True, text=True, check=True, timeout=5)
-            
-            self.echo_log.clear()
-            self.echo_log.write(f"[bold]Parameter Value: {escape_markup(param_name)}[/bold]")
-            self.echo_log.write(f"[bold]Node: {escape_markup(node_name)}[/bold]")
-            self.echo_log.write("")
-            
-            # Display the parameter value output
-            for line in result.stdout.splitlines():
-                self.echo_log.write(escape_markup(line))
-            
-        except FileNotFoundError:
-            self.echo_log.clear()
-            self.echo_log.write("[red]ros2 command not found. Ensure ROS 2 is installed and sourced.[/]")
-        except subprocess.TimeoutExpired:
-            self.echo_log.clear()
-            self.echo_log.write(f"[red]Timeout fetching value for parameter: {escape_markup(parameter_text)}[/]")
-        except subprocess.CalledProcessError as e:
-            self.echo_log.clear()
-            self.echo_log.write(f"[red]Error fetching parameter value: {escape_markup(e.stderr or str(e))}[/]")
-        except Exception as e:
-            self.echo_log.clear()
-            self.echo_log.write(f"[red]Error fetching parameter value: {escape_markup(str(e))}[/]")
+   

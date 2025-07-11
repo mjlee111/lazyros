@@ -1,6 +1,7 @@
 import subprocess
 import threading
 import re  # For parsing node and param name
+import asyncio
 from typing import List, Optional, Tuple
 
 from rclpy.node import Node
@@ -84,6 +85,10 @@ class ParameterListWidget(Container):
         self.ignore_parser = IgnoreParser('config/display_ignore.yaml')  # Instantiate IgnoreParser
         self.selected_parameter_text = None
         self._current_parameter = None
+        
+        # Add delayed update mechanism like node_list_widget and topic_list_widget
+        self._highlight_task = None
+        self._highlight_delay = 0.5  # 0.5 second delay for better responsiveness
 
     def _log_error(self, msg: str):
         if hasattr(self.ros_node, 'get_logger'):
@@ -132,8 +137,6 @@ class ParameterListWidget(Container):
             process_result = subprocess.run(
                 cmd, shell=True, capture_output=True, text=True, timeout=10
             )
-            # if process_result.stderr:
-            # self._log_error(f"Thread: stderr from 'ros2 param list':\n{process_result.stderr}")
 
             if process_result.returncode == 0:
                 if process_result.stdout:
@@ -357,9 +360,10 @@ class ParameterListWidget(Container):
                 self.selected_parameter_text = parameter_text
                 self._current_parameter = parameter_text
                 
-                # Always notify the main app about the parameter selection
-                if hasattr(self.app, 'update_parameter_display'):
-                    self.app.update_parameter_display(parameter_text)
+                # Use delayed update mechanism like node_list_widget and topic_list_widget
+                if self._highlight_task and not self._highlight_task.done():
+                    self._highlight_task.cancel()
+                self._highlight_task = asyncio.create_task(self._delayed_update())
             else:
                 self.selected_parameter_text = None
                 self._current_parameter = None
@@ -371,6 +375,39 @@ class ParameterListWidget(Container):
     def on_list_view_selected(self, event):
         """Handle when a parameter is selected in the ListView."""
         self.on_list_view_highlighted(event)
+
+    async def _delayed_update(self):
+        """Delayed update mechanism like node_list_widget and topic_list_widget."""
+        await asyncio.sleep(self._highlight_delay)
+        await self._update_parameter_display_async()
+
+    async def _update_parameter_display_async(self):
+        """Update the parameter display asynchronously."""
+        if not self.selected_parameter_text or not ":" in self.selected_parameter_text:
+            return
+
+        try:
+            # Check if we're in parameters mode
+            if hasattr(self.app, 'current_right_pane_config') and self.app.current_right_pane_config == "parameters":
+                # Update Info tab directly
+                try:
+                    info_widget = self.app.query_one("#parameter-info-view-content")
+                    info_widget.update_parameter_info(self.selected_parameter_text)
+                except Exception as e:
+                    pass
+                
+                # Update Value tab directly
+                try:
+                    value_widget = self.app.query_one("#parameter-value-view-content")
+                    value_widget.display_parameter_value(self.selected_parameter_text)
+                except Exception as e:
+                    pass
+            
+            # Also notify the main app about the parameter selection (fallback)
+            if hasattr(self.app, 'update_parameter_display'):
+                self.app.update_parameter_display(self.selected_parameter_text)
+        except Exception as e:
+            pass
 
     def on_unmount(self) -> None:
         pass

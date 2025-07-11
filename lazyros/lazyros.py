@@ -19,6 +19,7 @@ from lazyros.widgets.info_view_widget import InfoViewWidget
 from lazyros.widgets.topic_list_widget import TopicListWidget
 from lazyros.widgets.parameter_list_widget import ParameterListWidget
 from lazyros.widgets.echo_view_widget import EchoViewWidget
+from lazyros.widgets.parameter_value_widget import ParameterValueWidget
 from lazyros.modals.topic_info_modal import TopicInfoModal  # Import TopicInfoModal
 from lazyros.modals.message_modal import MessageModal  # Import MessageModal
 from lazyros.utils.utility import ros_spin_thread, signal_shutdown, load_restart_config
@@ -77,7 +78,6 @@ class LazyRosApp(App):
             self.action_focus_previous_pane()
             event.stop()
         elif event.key == "enter" and self.focused_pane == "left":
-            self.notify("focus_right_pane")
             print("[DEBUG] Enter key pressed in left pane")
             self.action_focus_right_pane()
             event.stop()
@@ -122,7 +122,7 @@ class LazyRosApp(App):
                     with TabPane("Info", id="info"):
                         yield InfoViewWidget(self.ros_node, id="parameter-info-view-content")
                     with TabPane("Value", id="value"):
-                        yield EchoViewWidget(self.ros_node, id="parameter-value-view-content")
+                        yield ParameterValueWidget(self.ros_node, id="parameter-value-view-content")
 
         yield Footer()
 
@@ -277,7 +277,6 @@ class LazyRosApp(App):
                 
         except Exception:
             pass
-    
 
     def action_focus_next_pane(self) -> None:
         """Focus the next pane. If on left pane, move to next left pane. If on right pane, move to left pane."""
@@ -478,11 +477,7 @@ class LazyRosApp(App):
     
     def _update_right_pane_for_parameters(self) -> None:
         """Update right pane to show Info and Value tabs for Parameters."""
-        print("[MAIN APP] _update_right_pane_for_parameters called!")
         try:
-            # Stop echo if it's running
-            self._stop_topic_echo()
-            
             # Update title
             title_widget = self.query_one("#right-pane-title")
             title_widget.update("Parameter Info and Value")
@@ -572,7 +567,6 @@ class LazyRosApp(App):
                     self._update_right_pane_for_parameters()
                 self.focused_pane = "left"
             else:
-                # Check if focus is on right pane widgets
                 try:
                     default_tabs = self.query_one("#default-tabs")
                     topic_tabs = self.query_one("#topic-tabs")
@@ -589,8 +583,6 @@ class LazyRosApp(App):
         """Handle when a tab is activated in TabbedContent."""
         # Tab switching is now handled automatically by the 1-second delayed update
         pass
-
-    # Removed custom run_async method
 
 
 def main(args=None):
