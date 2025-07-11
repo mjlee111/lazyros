@@ -39,8 +39,9 @@ class LazyRosApp(App):
 
     CSS_PATH = "lazyros.css"
     
-    NODE_TAB_PANE_ID_LIST = ["log", "info"]
-    TOPIC_TAB_PANE_ID_LIST = ["info", "echo"]
+    NODE_TAB_ID_LIST = ["log", "info"]
+    TOPIC_TAB_ID_LIST = ["info", "echo"]
+    PARAMETER_TAB_ID_LIST = ["info", "value"]
 
     def __init__(self, ros_node: Node, restart_config=None):
         super().__init__()
@@ -297,48 +298,32 @@ class LazyRosApp(App):
     def action_previous_tab(self) -> None:
         """Switch to previous tab in the right pane."""
         try:
-            print(f"[DEBUG] action_previous_tab called, config: {self.current_right_pane_config}")
             if self.current_right_pane_config == "topics":
                 topic_tabs = self.query_one("#topic-tabs")
-                print(f"[DEBUG] Found topic_tabs: {topic_tabs}, current active: {topic_tabs.active}")
-                # Get all tab panes
-                tab_panes = topic_tabs.children
-                current_active = topic_tabs.active
-                pane_ids = [pane.id for pane in tab_panes]
-                print(f"[DEBUG] Available tabs: {pane_ids}")
-                
-                if current_active in pane_ids:
-                    current_index = pane_ids.index(current_active)
-                    new_index = (current_index - 1) % len(pane_ids)
-                    topic_tabs.active = pane_ids[new_index]
-                    print(f"[DEBUG] Switched to tab: {topic_tabs.active}")
-                else:
-                    print(f"[DEBUG] Current active tab not found in pane IDs")
+                current_tab_= topic_tabs.active
+                if self.TOPIC_TAB_ID_LIST[0] == current_tab_:
+                    return
+                for i in self.TOPIC_TAB_ID_LIST[1:]:
+                    if current_tab_ == i:
+                        topic_tabs.active = self.TOPIC_TAB_ID_LIST[self.TOPIC_TAB_ID_LIST.index(i) - 1]
+
             elif self.current_right_pane_config == "parameters":
                 parameter_tabs = self.query_one("#parameter-tabs")
-                print(f"[DEBUG] Found parameter_tabs: {parameter_tabs}, current active: {parameter_tabs.active}")
-                # Get all tab panes
-                tab_panes = parameter_tabs.children
-                current_active = parameter_tabs.active
-                pane_ids = [pane.id for pane in tab_panes]
-                print(f"[DEBUG] Available tabs: {pane_ids}")
-                
-                if current_active in pane_ids:
-                    current_index = pane_ids.index(current_active)
-                    new_index = (current_index - 1) % len(pane_ids)
-                    parameter_tabs.active = pane_ids[new_index]
-                    print(f"[DEBUG] Switched to tab: {parameter_tabs.active}")
-                else:
-                    print(f"[DEBUG] Current active tab not found in pane IDs")
-            else:
+                current_tab_= parameter_tabs.active
+                if self.PARAMETER_TAB_ID_LIST[0] == current_tab_:
+                    return
+                for i in self.PARAMETER_TAB_ID_LIST[1:]:
+                    if current_tab_ == i:
+                        parameter_tabs.active = self.PARAMETER_TAB_ID_LIST[self.PARAMETER_TAB_ID_LIST.index(i) - 1]
+
+            elif self.current_right_pane_config == "default":
                 default_tabs = self.query_one("#default-tabs")
                 current_tab_= default_tabs.active
-                if self.NODE_TAB_PANE_ID_LIST[0] == current_tab_:
+                if self.NODE_TAB_ID_LIST[0] == current_tab_:
                     return
-                
-                for i in self.NODE_TAB_PANE_ID_LIST[1:]:
+                for i in self.NODE_TAB_ID_LIST[1:]:
                     if current_tab_ == i:
-                        default_tabs.active = self.NODE_TAB_PANE_ID_LIST[self.NODE_TAB_PANE_ID_LIST.index(i) - 1]
+                        default_tabs.active = self.NODE_TAB_ID_LIST[self.NODE_TAB_ID_LIST.index(i) - 1]
         except Exception as e:
             print(f"Error switching to previous tab: {e}")
             import traceback
@@ -349,43 +334,31 @@ class LazyRosApp(App):
         try:
             if self.current_right_pane_config == "topics":
                 topic_tabs = self.query_one("#topic-tabs")
-                # Get all tab panes
-                tab_panes = topic_tabs.children
-                current_active = topic_tabs.active
-                pane_ids = [pane.id for pane in tab_panes]
-                print(f"[DEBUG] Available tabs: {pane_ids}")
-                
-                if current_active in pane_ids:
-                    current_index = pane_ids.index(current_active)
-                    new_index = (current_index + 1) % len(pane_ids)
-                    topic_tabs.active = pane_ids[new_index]
-                    print(f"[DEBUG] Switched to tab: {topic_tabs.active}")
-                else:
-                    print(f"[DEBUG] Current active tab not found in pane IDs")
+                current_tab_= topic_tabs.active
+                if self.TOPIC_TAB_ID_LIST[-1] == current_tab_:
+                    return
+                for i in self.TOPIC_TAB_ID_LIST[:-1]:
+                    if current_tab_ == i:
+                        topic_tabs.active = self.TOPIC_TAB_ID_LIST[self.TOPIC_TAB_ID_LIST.index(i) + 1]
+
             elif self.current_right_pane_config == "parameters":
                 parameter_tabs = self.query_one("#parameter-tabs")
-                # Get all tab panes
-                tab_panes = parameter_tabs.children
-                current_active = parameter_tabs.active
-                pane_ids = [pane.id for pane in tab_panes]
-                print(f"[DEBUG] Available tabs: {pane_ids}")
-                
-                if current_active in pane_ids:
-                    current_index = pane_ids.index(current_active)
-                    new_index = (current_index + 1) % len(pane_ids)
-                    parameter_tabs.active = pane_ids[new_index]
-                    print(f"[DEBUG] Switched to tab: {parameter_tabs.active}")
-                else:
-                    print(f"[DEBUG] Current active tab not found in pane IDs")
-            else:
+                current_tab_= parameter_tabs.active
+                if self.PARAMETER_TAB_ID_LIST[-1] == current_tab_:
+                    return
+                for i in self.PARAMETER_TAB_ID_LIST[:-1]:
+                    if current_tab_ == i:
+                        parameter_tabs.active = self.PARAMETER_TAB_ID_LIST[self.PARAMETER_TAB_ID_LIST.index(i) + 1]
+
+            elif self.current_right_pane_config == "default":
                 default_tabs = self.query_one("#default-tabs")
                 current_tab_= default_tabs.active
-                if self.NODE_TAB_PANE_ID_LIST[-1] == current_tab_:
+                if self.NODE_TAB_ID_LIST[-1] == current_tab_:
                     return
                 
-                for i in self.NODE_TAB_PANE_ID_LIST[:-1]:
+                for i in self.NODE_TAB_ID_LIST[:-1]:
                     if current_tab_ == i:
-                        default_tabs.active = self.NODE_TAB_PANE_ID_LIST[self.NODE_TAB_PANE_ID_LIST.index(i) + 1]
+                        default_tabs.active = self.NODE_TAB_ID_LIST[self.NODE_TAB_ID_LIST.index(i) + 1]
         except Exception as e:
             print(f"Error switching to next tab: {e}")
             import traceback
@@ -538,51 +511,6 @@ class LazyRosApp(App):
         except Exception as e:
             print(f"Error getting echo rate: {e}")
             return 2.0  # Default rate
-
-    def on_descendant_focus(self, event) -> None:
-        """Update current pane index when a descendant widget receives focus."""
-        try:
-            # Check which pane received focus and update the index
-            focused_widget = event.widget
-            
-            # Check if the focused widget is one of our ListViews
-            node_widget = self.query_one("#node-list-content")
-            topic_widget = self.query_one("#topic-list-content")
-            parameter_widget = self.query_one("#parameter-list-content")
-            
-            # Check if focus is on left pane widgets
-            if focused_widget == node_widget.node_list_view:
-                if self.current_pane_index != 0:
-                    self.current_pane_index = 0
-                    self._update_right_pane_for_nodes()
-                self.focused_pane = "left"
-            elif focused_widget == topic_widget.topic_list_view:
-                if self.current_pane_index != 1:
-                    self.current_pane_index = 1
-                    self._update_right_pane_for_topics()
-                self.focused_pane = "left"
-            elif focused_widget == parameter_widget.parameter_list_view:
-                if self.current_pane_index != 2:
-                    self.current_pane_index = 2
-                    self._update_right_pane_for_parameters()
-                self.focused_pane = "left"
-            else:
-                try:
-                    default_tabs = self.query_one("#default-tabs")
-                    topic_tabs = self.query_one("#topic-tabs")
-                    parameter_tabs = self.query_one("#parameter-tabs")
-                    if (focused_widget == default_tabs or focused_widget == topic_tabs or focused_widget == parameter_tabs or
-                        focused_widget.parent == default_tabs or focused_widget.parent == topic_tabs or focused_widget.parent == parameter_tabs):
-                        self.focused_pane = "right"
-                except Exception:
-                    pass
-        except Exception:
-            pass  # Ignore errors in focus tracking
-    
-    def on_tabbed_content_tab_activated(self, event) -> None:
-        """Handle when a tab is activated in TabbedContent."""
-        # Tab switching is now handled automatically by the 1-second delayed update
-        pass
 
 
 def main(args=None):

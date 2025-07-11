@@ -336,9 +336,7 @@ class TopicListWidget(Container):
 
     async def _delayed_update(self):
         """Delayed update similar to NodeListWidget."""
-        print(f"[TOPIC LIST] Delayed update starting for: {self.selected_topic_name}")
         await asyncio.sleep(self._highlight_delay)
-        print(f"[TOPIC LIST] Delayed update executing for: {self.selected_topic_name}")
         await self._update_topic_display_async()
 
     async def _update_topic_display_async(self):

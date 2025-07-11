@@ -25,28 +25,27 @@ class ParameterValueWidget(Container):
         self.ros_node = ros_node
         self.value_log = RichLog(wrap=True, highlight=True, markup=True, id="parameter-value-log", max_lines=1000)
         self.current_parameter = None
+        self.ros_node.create_timer(0.5, self.display_parameter_value)
 
     def compose(self) -> ComposeResult:
         yield self.value_log
 
-    def display_parameter_value(self, parameter_text: str):
+    def update_parameter(self, parameter_text: str):
+        self.current_parameter = parameter_text
+
+    def display_parameter_value(self):
         """Display the value of a parameter using `ros2 param get` command."""
-        
+
         try:
-            # Parse the parameter text to extract node name and parameter name
-            match = re.fullmatch(r"([^:]+):\s*(.+)", parameter_text)
+            match = re.fullmatch(r"([^:]+):\s*(.+)", self.current_parameter)
             if not match:
                 self.value_log.clear()
-                self.value_log.write(f"[red]Invalid parameter format: {escape_markup(parameter_text)}[/]")
+                self.value_log.write(f"[red]Invalid parameter format: {escape_markup(self.current_parameter)}[/]")
                 return
                 
             node_name = match.group(1).strip()
             param_name = match.group(2).strip()
             
-            # Store current parameter
-            self.current_parameter = parameter_text
-            
-            # Use ros2 param get command to get parameter value
             command = ["ros2", "param", "get", node_name, param_name]
             result = subprocess.run(command, capture_output=True, text=True, check=True, timeout=5)
             
@@ -55,7 +54,6 @@ class ParameterValueWidget(Container):
             self.value_log.write(f"[bold]Node: {escape_markup(node_name)}[/bold]")
             self.value_log.write("")
             
-            # Display the parameter value output
             for line in result.stdout.splitlines():
                 self.value_log.write(escape_markup(line))
             
@@ -64,7 +62,7 @@ class ParameterValueWidget(Container):
             self.value_log.write("[red]ros2 command not found. Ensure ROS 2 is installed and sourced.[/]")
         except subprocess.TimeoutExpired:
             self.value_log.clear()
-            self.value_log.write(f"[red]Timeout fetching value for parameter: {escape_markup(parameter_text)}[/]")
+            self.value_log.write(f"[red]Timeout fetching value for parameter: {escape_markup(self.current_parameter)}[/]")
         except subprocess.CalledProcessError as e:
             self.value_log.clear()
             self.value_log.write(f"[red]Error fetching parameter value: {escape_markup(e.stderr or str(e))}[/]")
@@ -74,6 +72,7 @@ class ParameterValueWidget(Container):
     
     def clear_log(self):
         """Clear the parameter value log."""
+
         self.value_log.clear()
         if self.current_parameter:
             self.value_log.write(f"[bold]Parameter: {escape_markup(self.current_parameter)}[/bold]")
