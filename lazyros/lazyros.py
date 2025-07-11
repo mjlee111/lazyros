@@ -20,6 +20,7 @@ from lazyros.widgets.topic_list_widget import TopicListWidget
 from lazyros.widgets.parameter_list_widget import ParameterListWidget
 from lazyros.widgets.echo_view_widget import EchoViewWidget
 from lazyros.widgets.parameter_value_widget import ParameterValueWidget
+from lazyros.widgets.parameter_info_widget import ParameterInfoWidget
 from lazyros.modals.topic_info_modal import TopicInfoModal  # Import TopicInfoModal
 from lazyros.modals.message_modal import MessageModal  # Import MessageModal
 from lazyros.utils.utility import ros_spin_thread, signal_shutdown, load_restart_config
@@ -121,7 +122,7 @@ class LazyRosApp(App):
                         yield EchoViewWidget(self.ros_node, id="echo-view-content")
                 with TabbedContent("Info", "Value", id="parameter-tabs", classes="hidden"):
                     with TabPane("Info", id="info"):
-                        yield InfoViewWidget(self.ros_node, id="parameter-info-view-content")
+                        yield ParameterInfoWidget(self.ros_node, id="parameter-info-view-content")
                     with TabPane("Value", id="value"):
                         yield ParameterValueWidget(self.ros_node, id="parameter-value-view-content")
 
@@ -206,24 +207,6 @@ class LazyRosApp(App):
         except Exception as e:
             print(f"[MAIN APP] Error updating topic display: {e}")
     
-    def update_parameter_display(self, parameter_text: str) -> None:
-        """Update the parameter-specific Info and Value tabs with the selected parameter."""
-        try:
-            # Store the current parameter immediately (no delay)
-            self.current_selected_parameter = parameter_text
-            
-            # Only update if we're currently in parameter mode
-            if self.current_right_pane_config == "parameters":
-                # Cancel previous timer if exists
-                if hasattr(self, '_parameter_update_timer') and self._parameter_update_timer is not None:
-                    self._parameter_update_timer.cancel()
-                
-                # Set new timer for 1 second delay
-                self._parameter_update_timer = self.set_timer(1.0, self._delayed_parameter_update)
-                
-        except Exception as e:
-            pass
-    
     def _delayed_topic_update(self) -> None:
         """Delayed update for both Info and Echo tabs after 1 second."""
         try:
@@ -256,29 +239,6 @@ class LazyRosApp(App):
         except Exception as e:
             print(f"[MAIN APP] Error in delayed topic update: {e}")
     
-    def _delayed_parameter_update(self) -> None:
-        """Delayed update for both Info and Value tabs after 1 second."""
-        try:
-            if self.current_right_pane_config == "parameters" and hasattr(self, 'current_selected_parameter') and self.current_selected_parameter:
-                parameter_text = self.current_selected_parameter
-                
-                # Update Info tab with parameter description
-                try:
-                    info_widget = self.query_one("#parameter-info-view-content")
-                    info_widget.update_parameter_info(parameter_text)
-                except Exception:
-                    pass
-                
-                # Update Value tab with parameter value
-                try:
-                    value_widget = self.query_one("#parameter-value-view-content")
-                    value_widget.display_parameter_value(parameter_text)
-                except Exception:
-                    pass
-                
-        except Exception:
-            pass
-
     def action_focus_next_pane(self) -> None:
         """Focus the next pane. If on left pane, move to next left pane. If on right pane, move to left pane."""
         if self.focused_pane == "right":
@@ -465,25 +425,7 @@ class LazyRosApp(App):
             parameter_tabs.remove_class("hidden")
             
             self.current_right_pane_config = "parameters"
-            print(f"[MAIN APP] current_right_pane_config set to: {self.current_right_pane_config}")
             
-            # Check if there's a currently selected parameter and display it immediately
-            try:
-                parameter_widget = self.query_one("#parameter-list-content")
-                if parameter_widget.parameter_list_view.index is not None:
-                    index = parameter_widget.parameter_list_view.index
-                    if 0 <= index < len(parameter_widget.parameter_list_view.children):
-                        selected_item = parameter_widget.parameter_list_view.children[index]
-                        if selected_item.children:
-                            child = selected_item.children[0]
-                            parameter_text = str(child.renderable).strip()
-                            self.update_parameter_display(parameter_text)
-                # If we have a previously stored parameter, use that
-                elif hasattr(self, 'current_selected_parameter') and self.current_selected_parameter:
-                    self.update_parameter_display(self.current_selected_parameter)
-            except Exception:
-                pass
-                
         except Exception as e:
             print(f"Error updating right pane for parameters: {e}")
     

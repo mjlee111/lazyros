@@ -313,23 +313,21 @@ class ParameterListWidget(Container):
 
     async def _update_parameter_display_async(self):
         """Update the parameter display asynchronously."""
+
         if not self.selected_parameter_text or not ":" in self.selected_parameter_text:
             return
 
         try:
             if hasattr(self.app, 'current_right_pane_config') and self.app.current_right_pane_config == "parameters":
                 try:
-                    param_info_widget = self.app.query_one("#parameter-info-view-content")
-                    param_info_widget.update_parameter_info(self.selected_parameter_text)
+                    info_widget = self.app.query_one("#parameter-info-view-content")
+                    info_widget.update_parameter(self.selected_parameter_text)
                 
                     value_widget = self.app.query_one("#parameter-value-view-content")
                     value_widget.update_parameter(self.selected_parameter_text)
                 except Exception:
                     pass
             
-            # Fallback to main app update method
-            if hasattr(self.app, 'update_parameter_display'):
-                self.app.update_parameter_display(self.selected_parameter_text)
         except Exception:
             pass
 
