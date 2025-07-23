@@ -32,10 +32,6 @@ class ParameterInfoWidget(Container):
     def compose(self) -> ComposeResult:
         yield self.info_log
 
-    def update_parameter(self, parameter_text: str):
-        """Update the displayed parameter information."""
-        self.current_parameter = parameter_text
-
     def display_parameter_info(self):
         """Display the information of a parameter using `ros2 param describe` command."""
         

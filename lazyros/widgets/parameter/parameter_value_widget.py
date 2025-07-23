@@ -25,13 +25,10 @@ class ParameterValueWidget(Container):
         self.ros_node = ros_node
         self.value_log = RichLog(wrap=True, highlight=True, markup=True, id="parameter-value-log", max_lines=1000)
         self.current_parameter = None
-        self.ros_node.create_timer(0.5, self.display_parameter_value)
+        self.ros_node.create_timer(0.1, self.display_parameter_value)
 
     def compose(self) -> ComposeResult:
         yield self.value_log
-
-    def update_parameter(self, parameter_text: str):
-        self.current_parameter = parameter_text
 
     def display_parameter_value(self):
         """Display the value of a parameter using `ros2 param get` command."""

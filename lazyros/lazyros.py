@@ -13,14 +13,14 @@ from textual.widgets import (
     TabPane,
 )
 
-from lazyros.widgets.node_list_widget import NodeListWidget
-from lazyros.widgets.log_view_widget import LogViewWidget
-from lazyros.widgets.info_view_widget import InfoViewWidget
-from lazyros.widgets.topic_list_widget import TopicListWidget
-from lazyros.widgets.parameter_list_widget import ParameterListWidget
-from lazyros.widgets.echo_view_widget import EchoViewWidget
-from lazyros.widgets.parameter_value_widget import ParameterValueWidget
-from lazyros.widgets.parameter_info_widget import ParameterInfoWidget
+from lazyros.widgets.node.node_list_widget import NodeListWidget
+from lazyros.widgets.node.log_view_widget import LogViewWidget
+from lazyros.widgets.node.info_view_widget import InfoViewWidget
+from lazyros.widgets.topic.topic_list_widget import TopicListWidget
+from lazyros.widgets.parameter.parameter_list_widget import ParameterListWidget
+from lazyros.widgets.topic.echo_view_widget import EchoViewWidget
+from lazyros.widgets.parameter.parameter_value_widget import ParameterValueWidget
+from lazyros.widgets.parameter.parameter_info_widget import ParameterInfoWidget
 from lazyros.modals.topic_info_modal import TopicInfoModal  # Import TopicInfoModal
 from lazyros.modals.message_modal import MessageModal  # Import MessageModal
 from lazyros.utils.utility import ros_spin_thread, signal_shutdown, load_restart_config

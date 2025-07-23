@@ -1,5 +1,5 @@
 import subprocess
-import re  # For parsing node and param name
+import re 
 import asyncio
 from typing import List, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor
@@ -7,60 +7,23 @@ from concurrent.futures import ThreadPoolExecutor
 from rclpy.node import Node
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Center, Container, ScrollableContainer
+from textual.containers import Container, ScrollableContainer
 from textual.css.query import DOMQuery
-from textual.screen import Screen
 from textual.widgets import (
     Label,
     ListItem,
     ListView,
-    Static,
-    Button,
-    # Removed Input as it's not used here
 )
 from rich.markup import escape
 
 from lazyros.modals.parameter_value_modal import ParameterValueModal
-from lazyros.modals.set_parameter_modal import SetParameterModal  # Import SetParameterModal
-from lazyros.utils.ignore_parser import IgnoreParser  # Import IgnoreParser
+from lazyros.modals.set_parameter_modal import SetParameterModal
+from lazyros.utils.ignore_parser import IgnoreParser
 
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
     return escape(text)
-
-# --- Modal Screen Definition ---
-
-
-class ParameterValueModalScreen(Screen):
-    """A modal screen to display a parameter's value."""
-
-    BINDINGS = [
-        Binding("escape,q", "pop_screen", "Close", show=True),
-    ]
-
-    def __init__(self, title: str, content: str, **kwargs) -> None:
-        super().__init__(**kwargs)
-        self.modal_title = title
-        self.modal_content = content
-
-    def compose(self) -> ComposeResult:
-        yield Container(
-            Static(self.modal_title, id="modal_title"),
-            Container(
-                Static(self.modal_content, id="modal_content_text"),  # Wrap content for scrolling if needed
-                id="modal_content_container"
-            ),
-            Center(
-                Button("Close", variant="primary", id="modal_close_button")
-            ),
-            id="modal_dialog",
-        )
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id == "modal_close_button":
-            self.app.pop_screen()
-
 
 class ParameterListWidget(Container):
     """A widget to display the list of ROS parameters using 'ros2 param list'."""
@@ -77,11 +40,10 @@ class ParameterListWidget(Container):
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="param_list")
         self._current_update_task: Optional[asyncio.Task] = None
         self.ignore_parser = IgnoreParser('config/display_ignore.yaml')
-        self.selected_parameter_text = None
-        self._current_parameter = None
+        self._selected_param = None
+        self._last_processed_parameter = None
         
         self._highlight_task = None
-        self._highlight_delay = 1  # 0.5 second delay for better responsiveness
 
     def _log_error(self, msg: str):
         if hasattr(self.ros_node, 'get_logger'):
@@ -94,7 +56,6 @@ class ParameterListWidget(Container):
     def on_mount(self) -> None:
         self.parameter_list_view.initial_index = 0
         self.set_interval(5, self.trigger_update_list)
-        # Trigger initial update and ensure first item is highlighted
         self.trigger_update_list()
 
     def _parse_ros2_param_list_output(self, output: str) -> List[str]:
@@ -165,6 +126,7 @@ class ParameterListWidget(Container):
 
     def _update_view(self, new_params_list: List[str]):
         """Update the parameter list view with new data."""
+
         if self.previous_parameters_display_list != new_params_list:
             self.parameter_list_view.clear()
             items = [ListItem(Label(param_str)) for param_str in new_params_list] if new_params_list else [ListItem(Label("[No parameters available or error during fetch]"))]
@@ -177,31 +139,26 @@ class ParameterListWidget(Container):
 
     async def _update_list_async(self) -> None:
         """Asynchronously update the parameter list."""
+
         try:
-            # Run the fetch operation in a thread pool
             result = await asyncio.get_event_loop().run_in_executor(
                 self._executor, self._fetch_and_parse_parameters
             )
-            # Update the UI in the main thread
             self._update_view(result)
         except asyncio.CancelledError:
-            # Task was cancelled, ignore
             pass
         except Exception as e:
             self._log_error(f"Error during async parameter list update: {e}")
-            # Show error in UI
             self._update_view([f"[Error during update: {e}]"])
 
     def trigger_update_list(self) -> None:
         """Trigger an update of the parameter list, cancelling any existing update."""
-        # Cancel existing update task if running
+
         if self._current_update_task and not self._current_update_task.done():
             self._current_update_task.cancel()
         
-        # Start new update task
         self._current_update_task = asyncio.create_task(self._update_list_async())
 
-    # --- Get Parameter Value Functionality ---
     def _parse_selected_item(self, item_text: str) -> Optional[Tuple[str, str]]:
         """Regex to capture node_name and param_name from "node_name: param_name."""
 
@@ -213,8 +170,72 @@ class ParameterListWidget(Container):
         # self._log_error(f"Could not parse selected item: '{item_text}'")
         return None
 
+
+    def on_list_view_highlighted(self, event):
+        """Handle when a parameter is highlighted/selected in the ListView."""
+
+        try:
+            index = self.parameter_list_view.index
+            
+            if index is None or index < 0 or index >= len(self.parameter_list_view.children):
+                self._selected_param = None
+                return
+            
+            selected_item = self.parameter_list_view.children[index]
+            if not selected_item.children:
+                self._selected_param = None
+                return
+            
+            child = selected_item.children[0]
+            parameter_text = str(child.renderable).strip()
+            
+            if self._last_processed_parameter == parameter_text:
+                return
+                
+            if ":" in parameter_text and not parameter_text.startswith("["):
+                self._selected_param = parameter_text
+                self._last_processed_parameter = parameter_text
+                
+                if self._highlight_task and not self._highlight_task.done():
+                    self._highlight_task.cancel()
+                self._highlight_task = asyncio.create_task(self._update_window_display())
+
+            else:
+                self._selected_param = None
+                self._last_processed_parameter = None
+                
+        except Exception:
+            self._selected_param = None
+            self._last_processed_parameter = None
+
+
+    async def _update_window_display(self):
+        """Update main window display"""
+
+        if not self._selected_param or not ":" in self._selected_param:
+            self.log.error("No valid parameter selected for display update.")
+            return
+
+        try:
+            if self.app.current_right_pane_config == "parameters":
+                try:
+                    info_widget = self.app.query_one("#parameter-info-view-content")
+                    info_widget.current_parameter = self._selected_param
+                
+                    value_widget = self.app.query_one("#parameter-value-view-content")
+                    value_widget.current_parameter = self._selected_param
+
+                except Exception:
+                    self.log.error("Error updating parameter display widgets.")
+
+        except Exception:
+            self.log.error("Error updating parameter display in main window.")
+
+
+    # --- Action to Set Parameter Value ---
     def action_set_selected_parameter(self) -> None:
         """Action to set the value of the currently selected parameter."""
+
         highlighted_item_widget: Optional[ListItem] = self.parameter_list_view.highlighted_child
         if not highlighted_item_widget:
             self.app.bell()
@@ -264,80 +285,3 @@ class ParameterListWidget(Container):
             self.app.push_screen(ParameterValueModal(title="Error", content="Timeout describing parameter."))
         except Exception as e:
             self.app.push_screen(ParameterValueModal(title="Error", content=f"An error occurred describing parameter: {e}"))
-
-    def on_list_view_highlighted(self, event):
-        """Handle when a parameter is highlighted/selected in the ListView."""
-        try:
-            index = self.parameter_list_view.index
-            
-            if index is None or index < 0 or index >= len(self.parameter_list_view.children):
-                self.selected_parameter_text = None
-                return
-            
-            selected_item = self.parameter_list_view.children[index]
-            if not selected_item.children:
-                self.selected_parameter_text = None
-                return
-            
-            child = selected_item.children[0]
-            parameter_text = str(child.renderable).strip()
-            
-            # Skip if same parameter is selected
-            if self._current_parameter == parameter_text:
-                return
-                
-            # Only process if it's a valid parameter (contains ":")
-            if ":" in parameter_text and not parameter_text.startswith("["):
-                self.selected_parameter_text = parameter_text
-                self._current_parameter = parameter_text
-                
-                # Use delayed update mechanism like node_list_widget and topic_list_widget
-                if self._highlight_task and not self._highlight_task.done():
-                    self._highlight_task.cancel()
-                self._highlight_task = asyncio.create_task(self._delayed_update())
-            else:
-                self.selected_parameter_text = None
-                self._current_parameter = None
-                
-        except Exception:
-            self.selected_parameter_text = None
-            self._current_parameter = None
-
-    def on_list_view_selected(self, event):
-        """Handle when a parameter is selected in the ListView."""
-        self.on_list_view_highlighted(event)
-
-    async def _delayed_update(self):
-        await asyncio.sleep(self._highlight_delay)
-        await self._update_parameter_display_async()
-
-    async def _update_parameter_display_async(self):
-        """Update the parameter display asynchronously."""
-
-        if not self.selected_parameter_text or not ":" in self.selected_parameter_text:
-            return
-
-        try:
-            if hasattr(self.app, 'current_right_pane_config') and self.app.current_right_pane_config == "parameters":
-                try:
-                    info_widget = self.app.query_one("#parameter-info-view-content")
-                    info_widget.update_parameter(self.selected_parameter_text)
-                
-                    value_widget = self.app.query_one("#parameter-value-view-content")
-                    value_widget.update_parameter(self.selected_parameter_text)
-                except Exception:
-                    pass
-            
-        except Exception:
-            pass
-
-    def on_unmount(self) -> None:
-        """Clean up resources when the widget is unmounted."""
-        # Cancel any running tasks
-        if self._current_update_task and not self._current_update_task.done():
-            self._current_update_task.cancel()
-        if self._highlight_task and not self._highlight_task.done():
-            self._highlight_task.cancel()
-        
-        # Shutdown the thread pool
-        self._executor.shutdown(wait=False)
