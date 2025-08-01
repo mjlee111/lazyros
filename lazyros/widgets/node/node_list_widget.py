@@ -29,18 +29,14 @@ class NodeData:
 
 class NodeListWidget(Container):
     BINDINGS = [
-        Binding("r", "restart_node", "Restart Node"),
         Binding("k", "kill_node", "Kill Node"),
-        Binding("s", "start_node", "Start Node"),
-        Binding("l", "show_lifecycle_state", "Show Lifecycle State"),
     ]
 
-    def __init__(self, ros_node: Node, restart_config=None, ignore_file_path='config/display_ignore.yaml', **kwargs) -> None:
+    def __init__(self, ros_node: Node, ignore_file_path='config/display_ignore.yaml', **kwargs) -> None:
         super().__init__(**kwargs)
         self.ros_node = ros_node
         self.node_list_view = ListView()
         self.previous_node_names = set()
-        self.restart_config = restart_config or {}
         self.selected_node_name = None
         self.ignore_parser = IgnoreParser(ignore_file_path)
         self.launched_nodes = {}
@@ -53,22 +49,27 @@ class NodeListWidget(Container):
         self._current_node = None
 
     def compose(self) -> ComposeResult:
-        yield Label("ROS Nodes:")
+        #yield Label("ROS Nodes:")
         yield self.node_list_view
 
     def on_mount(self) -> None:
-        self.update_node_list()
-        self.set_interval(5, self.update_node_list)
+        asyncio.create_task(self.update_node_list())
+        self.set_interval(5, lambda: asyncio.create_task(self.update_node_list()))
         self.set_interval(1, self._update_if_ready)
         self.node_list_view.focus()
+        # Ensure first item is highlighted on startup
+        if self.node_list_view.children:
+            self.node_list_view.index = 0
 
-    def update_node_list(self) -> None:
+    async def update_node_list(self) -> None:
         node_set = set(self.launched_nodes.keys())
         nodes = []
         need_update = False
 
         try:
-            result = subprocess.run("ros2 node list", shell=True, capture_output=True, text=True)
+            result = await asyncio.get_event_loop().run_in_executor(
+                None, lambda: subprocess.run("ros2 node list", shell=True, capture_output=True, text=True)
+            )
             if result.returncode != 0:
                 self.node_list_view.clear()
                 self.node_list_view.append(ListItem(Label("[red]Error fetching nodes[/]")))
@@ -81,18 +82,10 @@ class NodeListWidget(Container):
 
                 raw_name = node_name[1:] if node_name.startswith("/") else node_name
                 if raw_name not in self.launched_nodes:
-
-                    # Check if the node is a lifecycle node
-                    is_lifecycle = False
-                    cmd = ["ros2", "node", "info", node_name]
-                    try:
-                        info_result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-                        if "lifecycle_msgs" in info_result.stdout:
-                            is_lifecycle = True
-                    except subprocess.CalledProcessError:
-                        pass
-
-                    self.launched_nodes[raw_name] = NodeData(name=raw_name, status="green", is_lifecycle=is_lifecycle)
+                    # Defer lifecycle check - just add as non-lifecycle for now
+                    self.launched_nodes[raw_name] = NodeData(name=raw_name, status="green", is_lifecycle=False)
+                    # Schedule async lifecycle check
+                    asyncio.create_task(self._check_lifecycle_async(node_name, raw_name))
                     need_update = True
                 elif self.launched_nodes[raw_name].status != "green":
                     self.launched_nodes[raw_name].status = "green"
@@ -179,20 +172,6 @@ class NodeListWidget(Container):
         except Exception as e:
             pass
 
-    def action_start_node(self) -> None:
-        if not self.selected_node_name:
-            return
-
-        node_name = "/"+self.selected_node_name
-        self.ros_node.get_logger().info(f"Starting node: {node_name}")
-
-        if node_name in self.restart_config["nodes"]:
-            restart_cmd = self.restart_config["nodes"][node_name]["command"]
-            subprocess.Popen(restart_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8', bufsize=1)
-        else:
-            self.ros_node.get_logger().error(f"Starting node: {node_name}")
-            print(f"Node {node_name} is not configured for restart.")
-
     def action_show_lifecycle_state(self) -> None:
         """Show a modal with information about the selected node."""
 
@@ -222,6 +201,21 @@ class NodeListWidget(Container):
 
             except Exception as e:
                 print(f"[log/info update error] {e}")
+
+    async def _check_lifecycle_async(self, node_name: str, raw_name: str) -> None:
+        """Check if a node is a lifecycle node asynchronously."""
+        try:
+            cmd = ["ros2", "node", "info", node_name]
+            result = await asyncio.get_event_loop().run_in_executor(
+                None, lambda: subprocess.run(cmd, capture_output=True, text=True, check=True)
+            )
+            if "lifecycle_msgs" in result.stdout:
+                if raw_name in self.launched_nodes:
+                    self.launched_nodes[raw_name].is_lifecycle = True
+                    # Update the display
+                    await self.update_node_list()
+        except (subprocess.CalledProcessError, asyncio.CancelledError):
+            pass
 
     def _update_if_ready(self):
         if self._highlight_task and self._highlight_task.done():

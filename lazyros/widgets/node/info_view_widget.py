@@ -30,14 +30,14 @@ class InfoViewWidget(Container):
 
     def update_info(self, node_name: str):
         """Update the displayed node information using `ros2 node info` output.
-        node_name is expected to be the name without a leading slash, e.g., 'talker' or 'namespace/nodename'.
+            node_name is expected to be the name without a leading slash.
+            e.g., 'talker' or 'namespace/nodename'.
         """
         
-        # Use node_name directly as key for caching, assuming it's consistent
+        # Check if we have cached info, display it immediately, but also refresh in background
         if node_name in self.info_dict:
+            self._display_cached_info(node_name)
             return
-        
-        print(f"InfoViewWidget.update_info: Fetching info for node: {node_name}")
         
         try:
             # `ros2 node info` expects the node name, not the full path
@@ -116,3 +116,40 @@ class InfoViewWidget(Container):
         except Exception as e:
             self.info_log.clear()
             self.info_log.write(f"[red]Unexpected error fetching info for '{node_name}': {escape_markup(str(e))}[/]")
+    
+    def _display_cached_info(self, node_name: str):
+        """Display cached information for a node."""
+
+        if node_name in self.info_dict:
+            self.info_log.clear()
+            for line in self.info_dict[node_name]:
+                self.info_log.write(line)
+
+    def update_topic_info(self, topic_name: str):
+        """Update the displayed topic information using `ros2 topic info` output."""
+        
+        try:
+            command = ["ros2", "topic", "info", topic_name]
+            result = subprocess.run(command, capture_output=True, text=True, check=True, timeout=5)
+            
+            self.info_log.clear()
+            self.info_log.write(f"[bold]Topic Information: {escape_markup(topic_name)}[/bold]")
+            self.info_log.write("")
+            
+            for line in result.stdout.splitlines():
+                self.info_log.write(escape_markup(line))
+            
+        except FileNotFoundError:
+            self.info_log.clear()
+            self.info_log.write("[red]ros2 command not found. Ensure ROS 2 is installed and sourced.[/]")
+        except subprocess.TimeoutExpired:
+            self.info_log.clear()
+            self.info_log.write(f"[red]Timeout fetching info for topic: {topic_name}[/]")
+        except subprocess.CalledProcessError as e:
+            self.info_log.clear()
+            self.info_log.write(f"[red]Error fetching info for topic '{topic_name}':[/]")
+            self.info_log.write(escape_markup(e.stderr or e.stdout))
+        except Exception as e:
+            self.info_log.clear()
+            self.info_log.write(f"[red]Unexpected error fetching info for '{topic_name}': {escape_markup(str(e))}[/]")
+   

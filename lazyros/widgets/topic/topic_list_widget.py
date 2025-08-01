@@ -1,3 +1,4 @@
+import asyncio
 from rclpy.node import Node
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -53,16 +54,24 @@ class TopicListWidget(Container):
         self.previous_topic_data: dict[str, str] = {}
         self.current_search_term: str = ""
         self.ignore_parser = IgnoreParser('config/display_ignore.yaml')
+        
+        # NodeListWidget pattern
+        self.selected_topic_name = None
+        self._current_topic = None
+        self._highlight_task = None
+        self._highlight_delay = 1.0  # Debounce delay: update only after 0.5 seconds of no movement
 
     def compose(self) -> ComposeResult:
-        yield Label("ROS Topics:")
+        #yield Label("ROS Topics:")
         yield self.search_input
         yield self.topic_list_view
 
     def on_mount(self) -> None:
         self._fetch_ros_topics()  # Initial fetch
-        self.set_interval(3, self._fetch_ros_topics)  # Fetch new data periodically (e.g., every 2 seconds)
-        self.topic_list_view.focus()
+        self.set_interval(5, self._fetch_ros_topics)  # Fetch new data periodically (increased interval)
+        # Ensure first item is highlighted on startup
+        if self.topic_list_view.children:
+            self.topic_list_view.index = 0
 
     def on_key(self, event: Key) -> None:
         if self.search_input.has_focus:
@@ -277,3 +286,84 @@ class TopicListWidget(Container):
             return
 
         self.app.push_screen(TopicEchoModal(topic_name=selected_topic_name, topic_type=selected_topic_type))
+
+    def on_list_view_highlighted(self, event):
+        """Handle when a topic is highlighted/selected in the ListView."""
+        try:
+            index = self.topic_list_view.index
+            print(f"[TOPIC LIST] Highlighted event, index: {index}")
+            
+            if index is None or index < 0 or index >= len(self.topic_list_view.children):
+                self.selected_topic_name = None
+                print("[TOPIC LIST] Invalid index")
+                return
+
+            selected_item = self.topic_list_view.children[index]
+            if not selected_item.children:
+                self.selected_topic_name = None
+                print("[TOPIC LIST] No children")
+                return
+
+            child = selected_item.children[0]
+            topic_name = str(child.renderable).strip()
+            print(f"[TOPIC LIST] Topic name: '{topic_name}'")
+
+            if self._current_topic == topic_name:
+                print(f"[TOPIC LIST] Same topic, skipping: {topic_name}")
+                return
+
+            # Only process valid topic names (should start with /)
+            if topic_name.startswith("/"):
+                self.selected_topic_name = topic_name
+                self._current_topic = topic_name
+                print(f"[TOPIC LIST] Selected topic: {topic_name}")
+
+                if self._highlight_task and not self._highlight_task.done():
+                    print("[TOPIC LIST] Cancelling previous task")
+                    self._highlight_task.cancel()
+                
+                print("[TOPIC LIST] Starting delayed update task")
+                self._highlight_task = asyncio.create_task(self._delayed_update())
+            else:
+                self.selected_topic_name = None
+                print(f"[TOPIC LIST] Invalid topic name: {topic_name}")
+
+        except Exception as e:
+            print(f"[topic highlight error] {e}")
+            import traceback
+            traceback.print_exc()
+            self.selected_topic_name = None
+
+    async def _delayed_update(self):
+        """Delayed update similar to NodeListWidget."""
+        await asyncio.sleep(self._highlight_delay)
+        await self._update_topic_display_async()
+
+    async def _update_topic_display_async(self):
+        """Update the topic display asynchronously."""
+        if not self.selected_topic_name or not self.selected_topic_name.startswith("/"):
+            return
+
+        try:
+            # Check if we're in topics mode
+            if hasattr(self.app, 'current_right_pane_config') and self.app.current_right_pane_config == "topics":
+                # Update Info tab directly like NodeListWidget does
+                try:
+                    info_widget = self.app.query_one("#topic-info-view-content")
+                    info_widget.update_topic_info(self.selected_topic_name)
+                    print(f"[TOPIC LIST] Updated info for: {self.selected_topic_name}")
+                except Exception as e:
+                    print(f"[TOPIC LIST] Error updating info: {e}")
+                
+                # Update Echo tab directly  
+                try:
+                    echo_widget = self.app.query_one("#echo-view-content")
+                    echo_widget.start_echo(self.selected_topic_name)
+                    print(f"[TOPIC LIST] Updated echo for: {self.selected_topic_name}")
+                except Exception as e:
+                    print(f"[TOPIC LIST] Error updating echo: {e}")
+            else:
+                print(f"[TOPIC LIST] Not in topics mode: {getattr(self.app, 'current_right_pane_config', 'unknown')}")
+                
+        except Exception as e:
+            print(f"[TOPIC LIST] Error updating topic display: {e}")
