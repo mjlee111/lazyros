@@ -50,7 +50,7 @@ class ParameterListWidget(Container):
             self.ros_node.get_logger().error(f"[ParameterListWidget] {msg}")
 
     def compose(self) -> ComposeResult:
-        yield Label("ROS Parameters:")
+        #yield Label("ROS Parameters:")
         yield ScrollableContainer(self.parameter_list_view)
 
     def on_mount(self) -> None:

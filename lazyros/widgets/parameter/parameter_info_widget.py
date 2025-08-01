@@ -24,10 +24,12 @@ class ParameterInfoWidget(Container):
 
     def __init__(self, ros_node: Node, **kwargs) -> None:
         super().__init__(**kwargs)
+
         self.ros_node = ros_node
         self.info_log = RichLog(wrap=True, highlight=True, markup=True, id="parameter-info-log", max_lines=1000)
         self.current_parameter = None
-        self.ros_node.create_timer(0.1, self.display_parameter_info)
+
+        self.ros_node.create_timer(0.01, self.display_parameter_info)
 
     def compose(self) -> ComposeResult:
         yield self.info_log

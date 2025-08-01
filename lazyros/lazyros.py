@@ -21,22 +21,64 @@ from lazyros.widgets.parameter.parameter_list_widget import ParameterListWidget
 from lazyros.widgets.topic.echo_view_widget import EchoViewWidget
 from lazyros.widgets.parameter.parameter_value_widget import ParameterValueWidget
 from lazyros.widgets.parameter.parameter_info_widget import ParameterInfoWidget
-from lazyros.modals.topic_info_modal import TopicInfoModal  # Import TopicInfoModal
-from lazyros.modals.message_modal import MessageModal  # Import MessageModal
-from lazyros.utils.utility import ros_spin_thread, signal_shutdown, load_restart_config
+from lazyros.modals.topic_info_modal import TopicInfoModal
+from lazyros.modals.message_modal import MessageModal
+from lazyros.utils.utility import ros_spin_thread, signal_shutdown
 
+from textual.screen import ModalScreen
+
+
+class HelpModal(ModalScreen):
+    CSS = """
+    HelpModal {
+        align: center middle;
+        layer: modal;
+    }
+    
+    #title {
+        dock: top;
+        width: 100%;
+        text-align: center;
+        padding: 1;
+    }
+
+    #modal-container {
+        width: 40%;
+        height: auto;
+        border: round white;
+        background: $background;
+    }
+    """
+    
+    BINDINGS = [
+        Binding("escape", "dismiss", "Quit Modal")
+    ]
+    
+    def compose(self):
+        help_text = (
+            "Help Menu\n"
+            "\n"
+            "enter        Focus right window\n"
+            "\[            Previous Tab\n"
+            "]            Next Tab\n"
+            "tab          Focus next container\n"
+            "shift+tab    Focus previous container"
+        )
+
+        yield Static(help_text, id="modal-container")
 
 class LazyRosApp(App):
     """A Textual app to monitor ROS information."""
 
     BINDINGS = [
-        ("ctrl+q", "quit", "Quit"),
-        ("tab", "focus_next_pane", "Next Pane"),
-        ("shift+tab", "focus_previous_pane", "Previous Pane"),
-        ("[", "previous_tab", "Previous Tab"),
-        ("]", "next_tab", "Next Tab"),
-        ("enter", "focus_right_pane", "Focus Right Pane"),
-    ]
+        Binding("q", "quit", "Quit", show=True),
+        Binding("?", "help", "Help", show=True),
+        Binding("tab", "focus_next_pane", "Next Pane", show=False),
+        Binding("shift+tab", "focus_previous_pane", "Previous Pane", show=False),
+        Binding("[", "previous_tab", "Previous Tab", show=False),
+        Binding("]", "next_tab", "Next Tab", show=False),
+        Binding("enter", "focus_right_pane", "Focus Right Pane", show=False),
+    ] 
 
     CSS_PATH = "lazyros.css"
     
@@ -44,25 +86,25 @@ class LazyRosApp(App):
     TOPIC_TAB_ID_LIST = ["info", "echo"]
     PARAMETER_TAB_ID_LIST = ["info", "value"]
 
-    def __init__(self, ros_node: Node, restart_config=None):
+    def __init__(self, ros_node: Node):
         super().__init__()
         self.ros_node = ros_node
-        self.restart_config = load_restart_config("config/restart_config.yaml")
-        # List of left pane widgets for tab navigation
+
         self.left_pane_widgets = [
             "#node-list-content",
             "#topic-list-content", 
             "#parameter-list-content"
         ]
+        self.left_container_widgets = [
+            "#node-list-container",
+            "#topic-list-container", 
+            "#parameter-list-container"
+        ]
         self.current_pane_index = 0
-        # Current tab configuration for right pane
-        self.current_right_pane_config = "default"  # "default", "topics"
-        # Current selected topic for Echo tab
+        self.current_right_pane_config = "default"
         self.current_selected_topic = None
-        # Timer for delayed topic updates
         self._topic_update_timer = None
-        # Track which pane is focused (left or right)
-        self.focused_pane = "left"  # "left" or "right"
+        self.focused_pane = "left"
 
     def on_mount(self) -> None:
         """Called when app is mounted. Perform async setup here."""
@@ -73,6 +115,7 @@ class LazyRosApp(App):
 
     def on_key(self, event) -> None:
         """Handle key events, override default tab behavior."""
+
         if event.key == "tab":
             self.action_focus_next_pane()
             event.stop()
@@ -80,14 +123,12 @@ class LazyRosApp(App):
             self.action_focus_previous_pane()
             event.stop()
         elif event.key == "enter" and self.focused_pane == "left":
-            print("[DEBUG] Enter key pressed in left pane")
             self.action_focus_right_pane()
             event.stop()
         elif event.key == "[":
             self.action_previous_tab()
             event.stop()
         elif event.key == "]":
-            print("[DEBUG] ] key pressed in left pane")
             self.action_next_tab()
             event.stop()
 
@@ -98,13 +139,13 @@ class LazyRosApp(App):
         with Horizontal():
             with Container(id="left-frame", classes="left-pane"):
                 with Vertical():
-                    with Container(classes="list-container"):
+                    with ScrollableContainer(classes="list-container", id="node-list-container"):
                         yield Static("Nodes", classes="frame-title")
-                        yield NodeListWidget(self.ros_node, self.restart_config, id="node-list-content")
-                    with ScrollableContainer(classes="list-container"):
+                        yield NodeListWidget(self.ros_node, id="node-list-content")
+                    with ScrollableContainer(classes="list-container", id="topic-list-container"):
                         yield Static("Topics", classes="frame-title")
                         yield TopicListWidget(self.ros_node, id="topic-list-content")
-                    with Container(classes="list-container"):
+                    with ScrollableContainer(classes="list-container", id="parameter-list-container"):
                         yield Static("Parameters", classes="frame-title")
                         yield ParameterListWidget(self.ros_node, id="parameter-list-content")
 
@@ -128,6 +169,11 @@ class LazyRosApp(App):
 
         yield Footer()
 
+
+    def action_help(self):
+        """Show the help modal."""
+        self.push_screen(HelpModal())
+
     def action_toggle_dark(self) -> None:
         """An action to toggle dark mode."""
         self.dark = not self.dark
@@ -138,28 +184,41 @@ class LazyRosApp(App):
         node_list = self.query_one(NodeListWidget)
         if node_list:
             node_list.action_restart_node()
+    
+    def set_left_pane_visual(self) -> None:
+        """Set the visual style for the left pane."""
+
+        if self.focused_pane == "right":
+            self.query_one(self.left_container_widgets[self.current_pane_index]).styles.border = ("round", "white")
+
+        else:
+            for i, name in enumerate(self.left_container_widgets):
+                widget = self.query_one(name)
+                if i == self.current_pane_index:
+                    widget.styles.border = ("round", "green")
+                else:
+                    widget.styles.border = ("round", "white")
+
 
     def action_focus_left_pane(self) -> None:
         """Focus the left pane and highlight it."""
+        self.focused_pane = "left"
+
         left_pane: Container = self.query_one("#left-frame")
         right_pane: Container = self.query_one("#right-frame")
+        right_pane.styles.border = ("round", "white")
 
-        left_pane.styles.border = ("heavy", "white")
-        right_pane.styles.border = ("solid", "white")
-
-        self.focused_pane = "left"
+        self.set_left_pane_visual()
         left_pane.focus()
 
     def action_focus_right_pane(self) -> None:
         """Focus the right pane and highlight it."""
-        left_pane: Container = self.query_one("#left-frame")
-        right_pane: Container = self.query_one("#right-frame")
-
-        left_pane.styles.border = ("solid", "white")
-        right_pane.styles.border = ("heavy", "white")
 
         self.focused_pane = "right"
-        # Focus the active tabbed content in the right pane
+        right_pane: Container = self.query_one("#right-frame")
+        right_pane.styles.border = ("round", "green")
+        self.set_left_pane_visual()
+        
         try:
             if self.current_right_pane_config == "topics":
                 topic_tabs = self.query_one("#topic-tabs")
@@ -240,7 +299,11 @@ class LazyRosApp(App):
             print(f"[MAIN APP] Error in delayed topic update: {e}")
     
     def action_focus_next_pane(self) -> None:
-        """Focus the next pane. If on left pane, move to next left pane. If on right pane, move to left pane."""
+        """Focus the next pane. 
+            If on left pane, move to next left pane. 
+            If on right pane, move to left pane.
+        """
+
         if self.focused_pane == "right":
             # If on right pane, move to left pane
             self.action_focus_left_pane()
@@ -252,6 +315,7 @@ class LazyRosApp(App):
 
     def action_focus_previous_pane(self) -> None:
         """Focus the previous pane in the left panel (Parameters -> Topics -> Node -> Parameters)."""
+
         self.current_pane_index = (self.current_pane_index - 1) % len(self.left_pane_widgets)
         self._focus_current_pane()
     
@@ -326,17 +390,16 @@ class LazyRosApp(App):
 
     def _focus_current_pane(self) -> None:
         """Focus the current pane based on current_pane_index."""
+
         try:
             widget_id = self.left_pane_widgets[self.current_pane_index]
             widget = self.query_one(widget_id)
             
             # Set focus to left pane and update visuals
             self.focused_pane = "left"
-            print(f"[DEBUG] _focus_current_pane: focused_pane set to 'left', widget_id: {widget_id}")
-            left_pane: Container = self.query_one("#left-frame")
-            right_pane: Container = self.query_one("#right-frame")
-            left_pane.styles.border = ("heavy", "white")
-            right_pane.styles.border = ("solid", "white")
+            right_pane_widget = self.query_one("#right-frame")
+            right_pane_widget.styles.border = ("round", "white")
+            self.set_left_pane_visual()
             
             if widget_id == "#node-list-content":
                 widget.node_list_view.focus()

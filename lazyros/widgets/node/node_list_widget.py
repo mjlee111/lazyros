@@ -29,18 +29,14 @@ class NodeData:
 
 class NodeListWidget(Container):
     BINDINGS = [
-        Binding("r", "restart_node", "Restart Node"),
         Binding("k", "kill_node", "Kill Node"),
-        Binding("s", "start_node", "Start Node"),
-        Binding("l", "show_lifecycle_state", "Show Lifecycle State"),
     ]
 
-    def __init__(self, ros_node: Node, restart_config=None, ignore_file_path='config/display_ignore.yaml', **kwargs) -> None:
+    def __init__(self, ros_node: Node, ignore_file_path='config/display_ignore.yaml', **kwargs) -> None:
         super().__init__(**kwargs)
         self.ros_node = ros_node
         self.node_list_view = ListView()
         self.previous_node_names = set()
-        self.restart_config = restart_config or {}
         self.selected_node_name = None
         self.ignore_parser = IgnoreParser(ignore_file_path)
         self.launched_nodes = {}
@@ -53,7 +49,7 @@ class NodeListWidget(Container):
         self._current_node = None
 
     def compose(self) -> ComposeResult:
-        yield Label("ROS Nodes:")
+        #yield Label("ROS Nodes:")
         yield self.node_list_view
 
     def on_mount(self) -> None:
@@ -175,20 +171,6 @@ class NodeListWidget(Container):
             pass
         except Exception as e:
             pass
-
-    def action_start_node(self) -> None:
-        if not self.selected_node_name:
-            return
-
-        node_name = "/"+self.selected_node_name
-        self.ros_node.get_logger().info(f"Starting node: {node_name}")
-
-        if node_name in self.restart_config["nodes"]:
-            restart_cmd = self.restart_config["nodes"][node_name]["command"]
-            subprocess.Popen(restart_cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8', bufsize=1)
-        else:
-            self.ros_node.get_logger().error(f"Starting node: {node_name}")
-            print(f"Node {node_name} is not configured for restart.")
 
     def action_show_lifecycle_state(self) -> None:
         """Show a modal with information about the selected node."""

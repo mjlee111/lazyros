@@ -30,15 +30,14 @@ class InfoViewWidget(Container):
 
     def update_info(self, node_name: str):
         """Update the displayed node information using `ros2 node info` output.
-        node_name is expected to be the name without a leading slash, e.g., 'talker' or 'namespace/nodename'.
+            node_name is expected to be the name without a leading slash.
+            e.g., 'talker' or 'namespace/nodename'.
         """
         
         # Check if we have cached info, display it immediately, but also refresh in background
         if node_name in self.info_dict:
             self._display_cached_info(node_name)
             return
-        
-        print(f"InfoViewWidget.update_info: Fetching info for node: {node_name}")
         
         try:
             # `ros2 node info` expects the node name, not the full path
@@ -120,6 +119,7 @@ class InfoViewWidget(Container):
     
     def _display_cached_info(self, node_name: str):
         """Display cached information for a node."""
+
         if node_name in self.info_dict:
             self.info_log.clear()
             for line in self.info_dict[node_name]:
@@ -127,10 +127,8 @@ class InfoViewWidget(Container):
 
     def update_topic_info(self, topic_name: str):
         """Update the displayed topic information using `ros2 topic info` output."""
-        print(f"InfoViewWidget.update_topic_info: Fetching info for topic: {topic_name}")
         
         try:
-            # Use ros2 topic info command to get topic information
             command = ["ros2", "topic", "info", topic_name]
             result = subprocess.run(command, capture_output=True, text=True, check=True, timeout=5)
             
@@ -138,7 +136,6 @@ class InfoViewWidget(Container):
             self.info_log.write(f"[bold]Topic Information: {escape_markup(topic_name)}[/bold]")
             self.info_log.write("")
             
-            # Display the topic info output
             for line in result.stdout.splitlines():
                 self.info_log.write(escape_markup(line))
             
