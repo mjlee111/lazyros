@@ -15,6 +15,7 @@ from lazyros.modals.lifecycle_modal import LifecycleModal
 import os
 import signal
 
+import re
 
 def escape_markup(text: str) -> str:
     return escape(text)
@@ -24,18 +25,15 @@ def escape_markup(text: str) -> str:
 class NodeData:
     name: str
     status: str
-    is_lifecycle: bool
 
 
 class NodeListWidget(Container):
-    BINDINGS = [
-        Binding("k", "kill_node", "Kill Node"),
-    ]
-
     def __init__(self, ros_node: Node, ignore_file_path='config/display_ignore.yaml', **kwargs) -> None:
         super().__init__(**kwargs)
         self.ros_node = ros_node
         self.listview = ListView()
+        self.node_listview_dict = {}
+        
         self.previous_node_names = set()
         self.selected_node_name = None
         self.ignore_parser = IgnoreParser(ignore_file_path)
@@ -49,174 +47,103 @@ class NodeListWidget(Container):
         self._current_node = None
 
     def compose(self) -> ComposeResult:
-        #yield Label("ROS Nodes:")
         yield self.listview
 
     def on_mount(self) -> None:
         asyncio.create_task(self.update_node_list())
         self.set_interval(5, lambda: asyncio.create_task(self.update_node_list()))
-        self.set_interval(1, self._update_if_ready)
+
         self.listview.focus()
-        # Ensure first item is highlighted on startup
         if self.listview.children:
             self.listview.index = 0
 
     async def update_node_list(self) -> None:
-        node_set = set(self.launched_nodes.keys())
-        nodes = []
+        """Update the list of nodes."""
+
+        nodes_and_namespaces = self.ros_node.get_node_names_and_namespaces()
+        launched_node_set =list(self.node_listview_dict.keys())
         need_update = False
+        
+        for tuple in nodes_and_namespaces:
+            node = tuple[0]
+            namespace = tuple[1]
+            if namespace == "/":
+                node_name = namespace + node 
+            else:
+                node_name = namespace + "/" + node
 
-        try:
-            result = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: subprocess.run("ros2 node list", shell=True, capture_output=True, text=True)
-            )
-            if result.returncode != 0:
-                self.listview.clear()
-                self.listview.append(ListItem(Label("[red]Error fetching nodes[/]")))
-                return
-
-            for line in result.stdout.splitlines():
-                node_name = line.strip()
-                if self.ignore_parser.should_ignore(node_name, 'node'):
-                    continue
-
-                raw_name = node_name[1:] if node_name.startswith("/") else node_name
-                if raw_name not in self.launched_nodes:
-                    # Defer lifecycle check - just add as non-lifecycle for now
-                    self.launched_nodes[raw_name] = NodeData(name=raw_name, status="green", is_lifecycle=False)
-                    # Schedule async lifecycle check
-                    asyncio.create_task(self._check_lifecycle_async(node_name, raw_name))
+            if self.ignore_parser.should_ignore(node_name, 'node'):
+                continue
+           
+            if node_name not in launched_node_set:
+                need_update = True
+                # If the node is not in the launched nodes, add it
+                self.node_listview_dict[node_name] = NodeData(name=node_name, status="green")
+            else:
+                if self.node_listview_dict[node_name].status != "green":
                     need_update = True
-                elif self.launched_nodes[raw_name].status != "green":
-                    self.launched_nodes[raw_name].status = "green"
-                    need_update = True
-                node_set.discard(raw_name)
+                    self.node_listview_dict[node_name].status = "green"
+                launched_node_set.remove(node_name)
+           
+        # Set nodes that are no longer launched to red
+        for dead_node in launched_node_set:
+            if self.node_listview_dict[dead_node].status == "green":
+                self.node_listview_dict[dead_node].status = "red"
+                need_update = True
 
-            for dead_node in node_set:
-                if self.launched_nodes[dead_node].status != "red":
-                    self.launched_nodes[dead_node].status = "red"
-                    need_update = True
+        if not need_update:
+            return
+                
+        nodes_list = list(self.node_listview_dict.keys())
+        sorted_nodes = sorted(nodes_list)
+          
+        # update node listview 
+        self.listview.clear()
+        nodes = []
+        for node in sorted_nodes:
+             status = self.node_listview_dict[node].status
+             label = RichText.assemble(
+                RichText("●", style=f"bold {status}"),
+                "    ",
+                RichText(node)
+             )
+             nodes.append(ListItem(Label(label)))
+             
+        self.listview.extend(nodes)
 
-            if not need_update:
-                return
-
-            sorted_names = sorted(self.launched_nodes.keys())
-            current_index = self.listview.index
-            self.listview.clear()
-            for name in sorted_names:
-                status = self.launched_nodes[name].status
-                is_lifecycle = self.launched_nodes[name].is_lifecycle
-                if is_lifecycle:
-                    status_symbol = " Ⓛ　"
-                else:
-                    status_symbol = "    "
-
-                label = RichText.assemble(RichText("●", style=f"bold {status}"), RichText(status_symbol, style=f"bold yellow"), "  ", RichText("/"+name))
-                nodes.append(ListItem(Label(label)))
-            self.listview.extend(nodes)
-
-            if current_index is not None and current_index < len(nodes):
-                self.listview.index = current_index
-            elif nodes:
-                self.listview.index = 0
-
-        except Exception as e:
-            self.listview.clear()
-            self.listview.append(ListItem(Label(f"[red]Error fetching nodes: {e}[/]")))
+        current_index = self.listview.index
+        if current_index is not None and current_index < len(nodes):
+            self.listview.index = current_index
+        elif nodes:
+            self.listview.index = 0
 
     def on_list_view_highlighted(self, event):
-        try:
-            index = self.listview.index
-            if index is None or index < 0 or index >= len(self.listview.children):
-                self.selected_node_name = None
-                return
-
-            selected_item = self.listview.children[index]
-            if not selected_item.children:
-                self.selected_node_name = None
-                return
-
-            child = selected_item.children[0]
-            raw_name = str(child.renderable).strip()
-
-            if self._current_node == raw_name:
-                return
-
-            i = raw_name.find("/") + 1
-            self.selected_node_name = raw_name[i:] if i != -1 else raw_name
-            self._current_node = raw_name
-
-            if self._highlight_task and not self._highlight_task.done():
-                self._highlight_task.cancel()
-            self._highlight_task = asyncio.create_task(self._delayed_update())
-
-        except Exception as e:
-            print(f"[highlight error] {e}")
+        index = self.listview.index
+        if index is None or not (0 <= index < len(self.listview.children)):
             self.selected_node_name = None
+            return
+        item = self.listview.children[index]
+        if not item.children:
+            self.selected_node_name = None
+            return
+        # Extract the display name
+        name_str = str(item.children[0].renderable).strip()
+        # Extract node name after the first slash (if any)
+        node_name = name_str.split("/", 1)[-1] if "/" in name_str else name_str
 
-    def action_kill_node(self) -> None:
-        try:
-            result = subprocess.run(
-                ['pgrep', '-f', self.selected_node_name],
-                stdout=subprocess.PIPE,
-                text=True,
-                check=True
-            )
-            pids = result.stdout.splitlines()
-            if result.returncode != 0:
-                return
-            for pid in pids:
-                os.kill(int(pid), signal.SIGTERM)
-        except subprocess.CalledProcessError as e:
-            pass
-        except Exception as e:
-            pass
+        if self.selected_node_name != node_name:
+            self.selected_node_name = node_name
+        self.update_window_display()
 
-    def action_show_lifecycle_state(self) -> None:
-        """Show a modal with information about the selected node."""
-
-        node_data = self.launched_nodes[self.selected_node_name]
-        self.app.push_screen(LifecycleModal(self.ros_node, node_data))
-
-    async def _delayed_update(self):
-        await asyncio.sleep(self._highlight_delay)
-        await self._update_log_and_info_async()
-
-    async def _update_log_and_info_async(self):
-        if not self.selected_node_name or self.selected_node_name.startswith("["):
+    def update_window_display(self):
+        if self.selected_node_name is None:
             return
 
-        async with self._highlight_lock:
-            try:
-                log_filter = self.selected_node_name
-                if self._last_log_filter == log_filter:
-                    return
-                self._last_log_filter = log_filter
+        log_widget = self.app.query_one("#log-view-content")
+        filtered_node = re.sub(r'^/', '', self.selected_node_name).replace('/', '.')
+        log_widget.selected_node = filtered_node 
+        
+        info_widget = self.app.query_one("#info-view-content")
+        info_widget.node_name = "/" + self.selected_node_name
+        info_widget.update_info()
 
-                log_view = self.app.query_one("#log-view-content")  # type: ignore
-                info_view = self.app.query_one("#info-view-content")  # type: ignore
-
-                log_view.filter_logs(log_filter.replace("/", "."))
-                info_view.update_info("/" + log_filter)
-
-            except Exception as e:
-                print(f"[log/info update error] {e}")
-
-    async def _check_lifecycle_async(self, node_name: str, raw_name: str) -> None:
-        """Check if a node is a lifecycle node asynchronously."""
-        try:
-            cmd = ["ros2", "node", "info", node_name]
-            result = await asyncio.get_event_loop().run_in_executor(
-                None, lambda: subprocess.run(cmd, capture_output=True, text=True, check=True)
-            )
-            if "lifecycle_msgs" in result.stdout:
-                if raw_name in self.launched_nodes:
-                    self.launched_nodes[raw_name].is_lifecycle = True
-                    # Update the display
-                    await self.update_node_list()
-        except (subprocess.CalledProcessError, asyncio.CancelledError):
-            pass
-
-    def _update_if_ready(self):
-        if self._highlight_task and self._highlight_task.done():
-            self._highlight_task = None

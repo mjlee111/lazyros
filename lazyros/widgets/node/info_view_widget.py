@@ -24,19 +24,26 @@ class InfoViewWidget(Container):
         self.ros_node = ros_node # May not be directly used if info comes from subprocess
         self.info_log = RichLog(wrap=True, highlight=True, markup=True, id="info-log", max_lines=1000)
         self.info_dict: dict[str, list[str]] = {} # Cache for node info
+        self.node_name = None
 
     def compose(self) -> ComposeResult:
         yield self.info_log
 
-    def update_info(self, node_name: str):
+    def update_info(self):
         """Update the displayed node information using `ros2 node info` output.
             node_name is expected to be the name without a leading slash.
             e.g., 'talker' or 'namespace/nodename'.
         """
-        
+
+        self.info_log.write(f"[bold]Fetching info for node: {escape_markup(self.node_name)}[/bold]\n")
+       
+        node_name = self.node_name 
         # Check if we have cached info, display it immediately, but also refresh in background
-        if node_name in self.info_dict:
+        if self.node_name in self.info_dict:
             self._display_cached_info(node_name)
+            return
+
+        if self.node_name is None:
             return
         
         try:
