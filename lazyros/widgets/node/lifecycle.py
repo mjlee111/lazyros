@@ -6,10 +6,24 @@ from textual.app import ComposeResult
 from textual.containers import Container
 from textual.widgets import RichLog
 from rich.markup import escape
+from dataclasses import dataclass
+
+import rclpy
+from lifecycle_msgs.srv import GetState
+from lifecycle_msgs.srv import ChangeState 
+from lifecycle_msgs.msg import State as LifecycleState
+
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
     return escape(text)
+
+@dataclass
+class LifecycleData:
+    is_lifecycle: bool
+    get_lifecycle_client: callable
+    change_lifecycle_client: callable
+
 
 class LifecycleWidget(Container):
     """Widget for displaying ROS node information."""
@@ -24,7 +38,7 @@ class LifecycleWidget(Container):
         super().__init__(**kwargs)
         self.ros_node = ros_node # May not be directly used if info comes from subprocess
         self.info_log = RichLog(wrap=True, highlight=True, markup=True, id="info-log", max_lines=1000)
-        self.info_dict: dict[str, list[str]] = {} # Cache for node info
+        self.lifecycle_dict: dict[str, list[str]] = {} # Cache for node info
         
         self.selected_node_data = None
         self.current_node_full_name = None
@@ -33,71 +47,73 @@ class LifecycleWidget(Container):
         yield self.info_log
         
     def on_mount(self) -> None:
-        self.set_interval(0.5, self.update_info)  # Update info every 0.5 seconds
+        self.set_interval(0.5, self.update_display)  # Update info every 0.5 seconds
 
-    def show_node_info(self) -> None:
-        node_data = self.selected_node_data
-        if node_data.full_name in self.info_dict:
-            return self.info_dict[node_data.full_name]
-
-        full_name = node_data.full_name 
-        node = self.selected_node_data.node_name
-        namespace = self.selected_node_data.namespace
-        
-        pubs = self.ros_node.get_publisher_names_and_types_by_node(node, namespace)
-        subs = self.ros_node.get_subscriber_names_and_types_by_node(node, namespace)
-        service_clients = self.ros_node.get_service_names_and_types_by_node(node, namespace)
-        service_servers = self.ros_node.get_client_names_and_types_by_node(node, namespace)
-        action_servers = graph.get_action_server_names_and_types_by_node(self.ros_node, node, namespace) 
-        action_clients = graph.get_action_client_names_and_types_by_node(self.ros_node, node, namespace) 
-
-        info_lines = []
-        info_lines.append(f"{full_name}") 
-        info_lines.append(f"  Subscribers:")
-        for sub in subs:
-            topic = sub[0]
-            type_list = sub[1]
-            info_lines.append(f"      {escape_markup(topic)}: {escape_markup(', '.join(type_list))}")
-        info_lines.append(f"  Publishers:")
-        for pub in pubs:
-            topic = pub[0]
-            type_list = pub[1]
-            info_lines.append(f"      {escape_markup(topic)}: {escape_markup(', '.join(type_list))}")
-        info_lines.append(f"  Service Clients:")
-        for client in service_clients:
-            service = client[0]
-            type_list = client[1]
-            info_lines.append(f"      {escape_markup(service)}: {escape_markup(', '.join(type_list))}")
-        info_lines.append(f"  Service Servers:")
-        for server in service_servers:
-            service = server[0]
-            type_list = server[1]
-            info_lines.append(f"      {escape_markup(service)}: {escape_markup(', '.join(type_list))}")
-        info_lines.append(f"  Action Servers:")
-        for server in action_servers:
-            action = server[0]
-            type_list = server[1]
-            info_lines.append(f"      {escape_markup(action)}: {escape_markup(', '.join(type_list))}")
-        info_lines.append(f"  Action Clients:")
-        for client in action_clients:
-            action = client[0]
-            type_list = client[1]
-            info_lines.append(f"      {escape_markup(action)}: {escape_markup(', '.join(type_list))}")
-        
-        self.info_dict[full_name] = info_lines
-        return info_lines
-            
-    def update_info(self):
+    def update_display(self):
+        # No node selected, clear display
         if self.selected_node_data is None:
             self.info_log.clear()
             self.info_log.write("[red]No node is selected yet.[/]")
             return
 
+        # Node is the same, no need to update
         if self.selected_node_data.full_name == self.current_node_full_name:
             return
-        
-        self.current_node_full_name = self.selected_node_data.full_name
+               
         self.info_log.clear()
-        info_lines = self.show_node_info()
+        self.current_node_full_name = self.selected_node_data.full_name
+        if self.selected_node_data.full_name not in self.lifecycle_dict:
+            self.create_lifecycle_data()
+        
+        if not self.lifecycle_dict[self.selected_node_data.full_name].is_lifecycle:
+            return self.info_log.write(f"[red]Node {self.selected_node_data.full_name} is not a lifecycle node.[/]")
+        
+        info_lines = self.get_lifecycle_state()
         self.info_log.write("\n".join(info_lines))
+
+
+    def create_lifecycle_data(self) -> bool:
+        node = self.selected_node_data.node_name
+        namespace = self.selected_node_data.namespace
+
+        is_lifecycle = False
+        srvs = self.ros_node.get_service_names_and_types_by_node(node, namespace)
+        for srv in srvs:
+            if "lifecycle_msgs/srv/GetState" in srv[1]:
+                is_lifecycle = True
+                break
+            
+        if is_lifecycle:
+            self.lifecycle_dict[self.selected_node_data.full_name] = \
+                LifecycleData(is_lifecycle=True,
+                            get_lifecycle_client=self.ros_node.create_client(GetState, f"{self.selected_node_data.full_name}/get_state"),
+                            change_lifecycle_client=self.ros_node.create_client(ChangeState, f"{self.selected_node_data.full_name}/change_state"))
+        else:
+            self.lifecycle_dict[self.selected_node_data.full_name] = \
+                LifecycleData(is_lifecycle=False,
+                            get_lifecycle_client=None,
+                            change_lifecycle_client=None)
+
+    def get_lifecycle_state(self) -> None:
+        """If the node is a lifecycle node, get its state."""
+        
+        full_name = self.selected_node_data.full_name
+        
+        lifecycle_client = self.lifecycle_dict[full_name].get_lifecycle_client
+        if not lifecycle_client.wait_for_service(timeout_sec=1.0):
+            return f"[red]Lifecycle service for {full_name} is not available[/]"
+
+        req = GetState.Request()
+        future = lifecycle_client.call_async(req)
+        rclpy.spin_until_future_complete(self.ros_node, future)
+        if not future.done() or future.result() is None:
+            return f"[red]Failed to get lifecycle state for {full_name}[/]"
+
+        current = future.result().current_state
+        info_lines = []
+        info_lines.append(f"Lifecycle State for {full_name}:")
+        info_lines.append(f"  {current.label}[{current.id}]")
+        return info_lines
+
+
         

@@ -83,7 +83,7 @@ class LazyRosApp(App):
     PARAMETER_TAB_ID_LIST = ["value", "info"]
 
     TAB_ID_DICT = {
-        "node": ["log", "info"],
+        "node": ["log", "lifecycle", "info"],
         "topic": ["echo", "info"],
         "parameter": ["value", "info"],
     }
@@ -149,7 +149,7 @@ class LazyRosApp(App):
                         yield ParameterListWidget(self.ros_node, id="parameter-listview")
 
             with Container(classes="right-pane", id="right-frame"):
-                with TabbedContent("Log", "Info", id="node-tabs"):
+                with TabbedContent("Log", "Lifecycle", "Info", id="node-tabs"):
                     with TabPane("Log", id="log"):
                         yield LogViewWidget(self.ros_node, id="log-view-content")
                     with TabPane("Lifecycle", id="lifecycle"):

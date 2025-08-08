@@ -28,7 +28,6 @@ class NodeData:
     namespace: str = ""
     node_name: str = ""
 
-
 class NodeListWidget(Container):
     def __init__(self, ros_node: Node, ignore_file_path='config/display_ignore.yaml', **kwargs) -> None:
         super().__init__(**kwargs)
@@ -147,3 +146,6 @@ class NodeListWidget(Container):
         
         info_widget = self.app.query_one("#info-view-content")
         info_widget.selected_node_data = self.node_listview_dict["/"+self.selected_node_name]
+
+        lifecycle_widget = self.app.query_one("#lifecycle-view-content")
+        lifecycle_widget.selected_node_data = self.node_listview_dict["/"+self.selected_node_name]

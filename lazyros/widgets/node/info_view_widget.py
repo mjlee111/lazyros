@@ -46,8 +46,8 @@ class InfoViewWidget(Container):
         
         pubs = self.ros_node.get_publisher_names_and_types_by_node(node, namespace)
         subs = self.ros_node.get_subscriber_names_and_types_by_node(node, namespace)
-        service_clients = self.ros_node.get_service_names_and_types_by_node(node, namespace)
-        service_servers = self.ros_node.get_client_names_and_types_by_node(node, namespace)
+        service_servers = self.ros_node.get_service_names_and_types_by_node(node, namespace)
+        service_clients = self.ros_node.get_client_names_and_types_by_node(node, namespace)
         action_servers = graph.get_action_server_names_and_types_by_node(self.ros_node, node, namespace) 
         action_clients = graph.get_action_client_names_and_types_by_node(self.ros_node, node, namespace) 
 
@@ -100,4 +100,3 @@ class InfoViewWidget(Container):
         self.info_log.clear()
         info_lines = self.show_node_info()
         self.info_log.write("\n".join(info_lines))
-        
