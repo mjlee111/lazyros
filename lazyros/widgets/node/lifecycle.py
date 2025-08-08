@@ -12,6 +12,7 @@ import rclpy
 from lifecycle_msgs.srv import GetState
 from lifecycle_msgs.srv import ChangeState 
 from lifecycle_msgs.msg import State as LifecycleState
+from rclpy.callback_groups import ReentrantCallbackGroup
 
 
 def escape_markup(text: str) -> str:
@@ -86,7 +87,7 @@ class LifecycleWidget(Container):
         if is_lifecycle:
             self.lifecycle_dict[self.selected_node_data.full_name] = \
                 LifecycleData(is_lifecycle=True,
-                            get_lifecycle_client=self.ros_node.create_client(GetState, f"{self.selected_node_data.full_name}/get_state"),
+                            get_lifecycle_client=self.ros_node.create_client(GetState, f"{self.selected_node_data.full_name}/get_state", callback_group=ReentrantCallbackGroup()),
                             change_lifecycle_client=self.ros_node.create_client(ChangeState, f"{self.selected_node_data.full_name}/change_state"))
         else:
             self.lifecycle_dict[self.selected_node_data.full_name] = \
