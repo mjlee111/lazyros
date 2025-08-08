@@ -11,7 +11,7 @@ def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
     return escape(text)
 
-class InfoViewWidget(Container):
+class LifecycleWidget(Container):
     """Widget for displaying ROS node information."""
 
     DEFAULT_CSS = """

@@ -1,4 +1,5 @@
 node:
+  /_ros2cli*
   /launch_ros*
   /move_group*
   /transform*
@@ -16,5 +17,4 @@ parameter:
   /move_group*
   /moveit*
   /servo_node*
-  *use_sim_time
   *qos_override*

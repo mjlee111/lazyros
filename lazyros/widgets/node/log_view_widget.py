@@ -24,11 +24,8 @@ class LogViewWidget(Container):
             Log.FATAL: "[bold magenta]",
         }
         self.logs_by_node: dict[str, list[str]] = {}
-
         self.current_node = None
         self.selected_node = None
-        
-        self.ros_node.create_timer(1, self.display_logs)
 
     def compose(self) -> ComposeResult:
         yield self.rich_log
@@ -41,6 +38,7 @@ class LogViewWidget(Container):
                 self.log_callback,
                 10,
             )
+            self.set_interval(0.5, self.display_logs)
         except Exception as e:
              self.rich_log.write(f"[bold red]Error creating /rosout subscriber: {e}[/]")
 
@@ -56,7 +54,7 @@ class LogViewWidget(Container):
         """Callback to handle incoming log messages."""
         
         try:
-            time_str = msg.stamp.sec + round(msg.stamp.nanosec / 1e9, 6)
+            time_str = f"{msg.stamp.sec + msg.stamp.nanosec / 1e9:.6f}"
             level_style = self.log_level_styles.get(msg.level, "[dim white]")
             level_char = self._level_to_char(msg.level)
             
@@ -73,9 +71,6 @@ class LogViewWidget(Container):
                 self.logs_by_node[msg.name] = []
             self.logs_by_node[msg.name].append(formatted_log)
             
-            if not self.filtered_node or msg.name == self.filtered_node:
-                self.app.call_from_thread(self.rich_log.write, formatted_log)
-        
         except Exception as e:
             print(f"Error processing log message in LogViewWidget: {e}")
 

@@ -16,6 +16,9 @@ from textual.widgets import (
 from lazyros.widgets.node.node_list_widget import NodeListWidget
 from lazyros.widgets.node.log_view_widget import LogViewWidget
 from lazyros.widgets.node.info_view_widget import InfoViewWidget
+from lazyros.widgets.node.lifecycle import LifecycleWidget
+
+from lazyros.widgets.topic.info_view_widget import TopicInfoWidget
 from lazyros.widgets.topic.topic_list_widget import TopicListWidget
 from lazyros.widgets.parameter.parameter_list_widget import ParameterListWidget
 from lazyros.widgets.topic.echo_view_widget import EchoViewWidget
@@ -149,13 +152,15 @@ class LazyRosApp(App):
                 with TabbedContent("Log", "Info", id="node-tabs"):
                     with TabPane("Log", id="log"):
                         yield LogViewWidget(self.ros_node, id="log-view-content")
+                    with TabPane("Lifecycle", id="lifecycle"):
+                        yield LifecycleWidget(self.ros_node, id="lifecycle-view-content")
                     with TabPane("Info", id="info"):
                         yield InfoViewWidget(self.ros_node, id="info-view-content")
                 with TabbedContent("Info", "Echo", id="topic-tabs", classes="hidden"):
                     with TabPane("Echo", id="echo"):
                         yield EchoViewWidget(self.ros_node, id="echo-view-content")
                     with TabPane("Info", id="info"):
-                        yield InfoViewWidget(self.ros_node, id="topic-info-view-content")
+                        yield TopicInfoWidget(self.ros_node, id="topic-info-view-content")
                 with TabbedContent("Info", "Value", id="parameter-tabs", classes="hidden"):
                     with TabPane("Value", id="value"):
                         yield ParameterValueWidget(self.ros_node, id="parameter-value-view-content")

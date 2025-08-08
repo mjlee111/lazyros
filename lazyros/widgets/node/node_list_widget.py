@@ -23,8 +23,10 @@ def escape_markup(text: str) -> str:
 
 @dataclass
 class NodeData:
-    name: str
+    full_name: str
     status: str
+    namespace: str = ""
+    node_name: str = ""
 
 
 class NodeListWidget(Container):
@@ -51,7 +53,7 @@ class NodeListWidget(Container):
 
     def on_mount(self) -> None:
         asyncio.create_task(self.update_node_list())
-        self.set_interval(5, lambda: asyncio.create_task(self.update_node_list()))
+        self.set_interval(3, lambda: asyncio.create_task(self.update_node_list()))
 
         self.listview.focus()
         if self.listview.children:
@@ -78,7 +80,7 @@ class NodeListWidget(Container):
             if node_name not in launched_node_set:
                 need_update = True
                 # If the node is not in the launched nodes, add it
-                self.node_listview_dict[node_name] = NodeData(name=node_name, status="green")
+                self.node_listview_dict[node_name] = NodeData(full_name=node_name, status="green", namespace=namespace, node_name=node)
             else:
                 if self.node_listview_dict[node_name].status != "green":
                     need_update = True
@@ -144,6 +146,4 @@ class NodeListWidget(Container):
         log_widget.selected_node = filtered_node 
         
         info_widget = self.app.query_one("#info-view-content")
-        info_widget.node_name = "/" + self.selected_node_name
-        info_widget.update_info()
-
+        info_widget.selected_node_data = self.node_listview_dict["/"+self.selected_node_name]

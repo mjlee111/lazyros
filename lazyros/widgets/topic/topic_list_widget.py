@@ -26,8 +26,6 @@ class TopicListWidget(Container):
     """A widget to display the list of ROS topics."""
 
     BINDINGS = [
-        Binding("i", "show_topic_info", "Info"),
-        Binding("e", "echo_topic", "Echo"),
         Binding("/", "start_search", "Search"),
         Binding("escape", "clear_search", "Clear Search", show=False),
     ]
@@ -247,46 +245,6 @@ class TopicListWidget(Container):
 
         self.app.push_screen(TopicInfoModal(topic_name=selected_topic_name))
 
-    def action_echo_topic(self) -> None:
-        """Echo the selected topic in a modal dialog."""
-        if self.listview.index is None:
-            return
-
-        if self.previous_topic_data.get("error") is not None:
-            self.app.bell()
-            return
-
-        if not self.previous_topic_data or "error" in self.previous_topic_data:  # "error" check might be obsolete
-            self.app.bell()
-            return
-
-        # Similar logic as action_show_topic_info to get the correct selected topic
-        search_term = self.search_input.value.lower() if self.search_input.display else ""
-        all_topic_names = sorted(list(self.previous_topic_data.keys()))
-
-        displayed_names = all_topic_names
-        if search_term:
-            displayed_names = [name for name in all_topic_names if search_term in name.lower()]
-
-        if self.listview.index is None or not (0 <= self.listview.index < len(displayed_names)):
-            return
-
-        selected_topic_name = displayed_names[self.listview.index]
-
-        if selected_topic_name == "[No topics found]" or selected_topic_name.startswith("[No topics match") or not selected_topic_name.startswith("/"):
-            self.app.bell()
-            return
-
-        # Get type from the original self.previous_topic_data
-        selected_topic_type = self.previous_topic_data.get(selected_topic_name)
-
-        if selected_topic_type is None:
-            self.app.bell()
-            # self.app.notify(f"Error: No type found for topic {selected_topic_name}", severity="error", timeout=3)
-            return
-
-        self.app.push_screen(TopicEchoModal(topic_name=selected_topic_name, topic_type=selected_topic_type))
-
     def on_list_view_highlighted(self, event):
         """Handle when a topic is highlighted/selected in the ListView."""
         index = self.listview.index
@@ -344,8 +302,8 @@ class TopicListWidget(Container):
                 # Update Info tab directly like NodeListWidget does
                 try:
                     info_widget = self.app.query_one("#topic-info-view-content")
-                    info_widget.update_topic_info(self.selected_topic_name)
-                    print(f"[TOPIC LIST] Updated info for: {self.selected_topic_name}")
+                    info_widget.selected_topic = self.selected_topic_name
+                    #info_widget.update_topic_info(self.selected_topic_name)
                 except Exception as e:
                     print(f"[TOPIC LIST] Error updating info: {e}")
                 
