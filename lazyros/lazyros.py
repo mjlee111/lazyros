@@ -13,16 +13,19 @@ from textual.widgets import (
     TabPane,
 )
 
-from lazyros.widgets.node.node_list_widget import NodeListWidget
-from lazyros.widgets.node.log_view_widget import LogViewWidget
-from lazyros.widgets.node.info_view_widget import InfoViewWidget
-from lazyros.widgets.topic.topic_list_widget import TopicListWidget
-from lazyros.widgets.parameter.parameter_list_widget import ParameterListWidget
-from lazyros.widgets.topic.echo_view_widget import EchoViewWidget
-from lazyros.widgets.parameter.parameter_value_widget import ParameterValueWidget
-from lazyros.widgets.parameter.parameter_info_widget import ParameterInfoWidget
-from lazyros.modals.topic_info_modal import TopicInfoModal
-from lazyros.modals.message_modal import MessageModal
+from lazyros.widgets.node.node_list import NodeListWidget
+from lazyros.widgets.node.node_log import LogViewWidget
+from lazyros.widgets.node.node_info import InfoViewWidget
+from lazyros.widgets.node.node_lifecycle import LifecycleWidget
+
+from lazyros.widgets.topic.topic_info import TopicInfoWidget
+from lazyros.widgets.topic.topic_list import TopicListWidget
+from lazyros.widgets.topic.topic_echo import EchoViewWidget
+
+from lazyros.widgets.parameter.parameter_list import ParameterListWidget
+from lazyros.widgets.parameter.parameter_value import ParameterValueWidget
+from lazyros.widgets.parameter.parameter_info import ParameterInfoWidget
+
 from lazyros.utils.utility import ros_spin_thread, signal_shutdown
 
 from textual.screen import ModalScreen
@@ -80,7 +83,7 @@ class LazyRosApp(App):
     PARAMETER_TAB_ID_LIST = ["value", "info"]
 
     TAB_ID_DICT = {
-        "node": ["log", "info"],
+        "node": ["log", "lifecycle", "info"],
         "topic": ["echo", "info"],
         "parameter": ["value", "info"],
     }
@@ -146,16 +149,18 @@ class LazyRosApp(App):
                         yield ParameterListWidget(self.ros_node, id="parameter-listview")
 
             with Container(classes="right-pane", id="right-frame"):
-                with TabbedContent("Log", "Info", id="node-tabs"):
+                with TabbedContent("Log", "Lifecycle", "Info", id="node-tabs"):
                     with TabPane("Log", id="log"):
                         yield LogViewWidget(self.ros_node, id="log-view-content")
+                    with TabPane("Lifecycle", id="lifecycle"):
+                        yield LifecycleWidget(self.ros_node, id="lifecycle-view-content")
                     with TabPane("Info", id="info"):
                         yield InfoViewWidget(self.ros_node, id="info-view-content")
                 with TabbedContent("Info", "Echo", id="topic-tabs", classes="hidden"):
                     with TabPane("Echo", id="echo"):
                         yield EchoViewWidget(self.ros_node, id="echo-view-content")
                     with TabPane("Info", id="info"):
-                        yield InfoViewWidget(self.ros_node, id="topic-info-view-content")
+                        yield TopicInfoWidget(self.ros_node, id="topic-info-view-content")
                 with TabbedContent("Info", "Value", id="parameter-tabs", classes="hidden"):
                     with TabPane("Value", id="value"):
                         yield ParameterValueWidget(self.ros_node, id="parameter-value-view-content")

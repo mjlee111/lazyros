@@ -4,7 +4,6 @@ from textual.app import ComposeResult
 from textual.containers import Container
 from textual.widgets import RichLog
 from rich.markup import escape
-from rclpy.callback_groups import ReentrantCallbackGroup
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
@@ -16,7 +15,7 @@ class LogViewWidget(Container):
     def __init__(self, ros_node: Node, **kwargs) -> None:
         super().__init__(**kwargs)
         self.ros_node = ros_node
-        self.rich_log = RichLog(wrap=True, highlight=True, markup=True, max_lines=1000) 
+        self.rich_log = RichLog(wrap=True, highlight=True, markup=True, max_lines=1000, auto_scroll=True) 
         self.log_level_styles = {
             Log.DEBUG: "[dim cyan]",
             Log.INFO: "[dim white]",
@@ -25,8 +24,8 @@ class LogViewWidget(Container):
             Log.FATAL: "[bold magenta]",
         }
         self.logs_by_node: dict[str, list[str]] = {}
-        self.filtered_node: str | None = None
-        self.callback_group = ReentrantCallbackGroup()  # Use a reentrant callback group for the subscription 
+        self.current_node = None
+        self.selected_node = None
 
     def compose(self) -> ComposeResult:
         yield self.rich_log
@@ -39,6 +38,7 @@ class LogViewWidget(Container):
                 self.log_callback,
                 10,
             )
+            self.set_interval(0.5, self.display_logs)
         except Exception as e:
              self.rich_log.write(f"[bold red]Error creating /rosout subscriber: {e}[/]")
 
@@ -54,7 +54,7 @@ class LogViewWidget(Container):
         """Callback to handle incoming log messages."""
         
         try:
-            time_str = msg.stamp.sec + msg.stamp.nanosec / 1e9
+            time_str = f"{msg.stamp.sec + msg.stamp.nanosec / 1e9:.6f}"
             level_style = self.log_level_styles.get(msg.level, "[dim white]")
             level_char = self._level_to_char(msg.level)
             
@@ -71,31 +71,24 @@ class LogViewWidget(Container):
                 self.logs_by_node[msg.name] = []
             self.logs_by_node[msg.name].append(formatted_log)
             
-            if not self.filtered_node or msg.name == self.filtered_node:
-                self.app.call_from_thread(self.rich_log.write, formatted_log)
-        
         except Exception as e:
             print(f"Error processing log message in LogViewWidget: {e}")
 
-    def filter_logs(self, node_name: str | None = None):
-        """Filter logs to show only those from the specified node.
-        node_name is expected to be the full path, e.g., /talker or /namespace/nodename
-        """
+    def display_logs(self):
+        """Display logs for the currently selected node. """
 
-        self.filtered_node = node_name
         self.rich_log.clear()
-        
-        if not node_name:
-            self.rich_log.write("[bold green]Showing logs for all nodes[/]")
-            for _node_key, logs in self.logs_by_node.items():
-                for log_entry in logs[-100:]:
-                    self.rich_log.write(log_entry)
-            return
-            
-        self.rich_log.write(f"[bold green]Showing logs for node: {node_name}[/]")
-        if node_name in self.logs_by_node:
-            for log_entry in self.logs_by_node[node_name][-200:]:
-                self.rich_log.write(log_entry)
-        #else:
-            #self.rich_log.write(f"[yellow]No logs found for node: {node_name}[/]")
 
+        if not self.selected_node:
+            self.rich_log.write("[bold red]No log to display.[/]")
+            return
+
+        if self.current_node != self.selected_node:
+            self.current_node = self.selected_node
+
+        if self.current_node in self.logs_by_node:
+            for log_entry in self.logs_by_node[self.current_node][-200:]:
+                self.rich_log.write(log_entry)
+        else:
+            self.rich_log.write(f"[yellow]No logs found for node: {self.current_node}[/]") 
+           

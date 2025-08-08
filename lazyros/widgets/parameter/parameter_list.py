@@ -217,7 +217,7 @@ class ParameterListWidget(Container):
             return
 
         try:
-            if self.app.current_right_pane_config == "parameters":
+            if self.app.current_right_pane_config == "parameter":
                 try:
                     info_widget = self.app.query_one("#parameter-info-view-content")
                     info_widget.current_parameter = self._selected_param
