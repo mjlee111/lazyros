@@ -78,14 +78,14 @@ class TopicListWidget(Container):
             if event.key == "up":
                 if self.listview.index is not None and self.listview.index > 0:
                     self.listview.index -= 1
-                elif self.listview.index is None and len(self.topic_list_view.children) > 0:
-                    self.listview.index = len(self.topic_list_view.children) - 1  # Select last if None
+                elif self.listview.index is None and len(self.listview.children) > 0:
+                    self.listview.index = len(self.listview.children) - 1  # Select last if None
                 self.listview.scroll_visible()  # Scroll to the new index
                 event.stop()
             elif event.key == "down":
-                if self.listview.index is not None and self.listview.index < len(self.topic_list_view.children) - 1:
+                if self.listview.index is not None and self.listview.index < len(self.listview.children) - 1:
                     self.listview.index += 1
-                elif self.listview.index is None and len(self.topic_list_view.children) > 0:
+                elif self.listview.index is None and len(self.listview.children) > 0:
                     self.listview.index = 0  # Select first if None
                 self.listview.scroll_visible()  # Scroll to the new index
                 event.stop()
@@ -239,7 +239,7 @@ class TopicListWidget(Container):
         if self.listview.index is None or not (0 <= self.listview.index < len(displayed_names)):
             return
 
-        selected_topic_name = displayed_names[self.topic_list_view.index]
+        selected_topic_name = displayed_names[self.listview.index]
         if selected_topic_name == "[No topics found]" or not selected_topic_name.startswith("/"):
             # Add a message to the app's log or a status bar if available
             self.app.bell()  # Simple feedback
@@ -271,7 +271,7 @@ class TopicListWidget(Container):
         if self.listview.index is None or not (0 <= self.listview.index < len(displayed_names)):
             return
 
-        selected_topic_name = displayed_names[self.topic_list_view.index]
+        selected_topic_name = displayed_names[self.listview.index]
 
         if selected_topic_name == "[No topics found]" or selected_topic_name.startswith("[No topics match") or not selected_topic_name.startswith("/"):
             self.app.bell()
@@ -289,50 +289,44 @@ class TopicListWidget(Container):
 
     def on_list_view_highlighted(self, event):
         """Handle when a topic is highlighted/selected in the ListView."""
-        try:
-            index = self.listview.index
-            print(f"[TOPIC LIST] Highlighted event, index: {index}")
-            
-            if index is None or index < 0 or index >= len(self.topic_list_view.children):
-                self.selected_topic_name = None
-                print("[TOPIC LIST] Invalid index")
-                return
-
-            selected_item = self.listview.children[index]
-            if not selected_item.children:
-                self.selected_topic_name = None
-                print("[TOPIC LIST] No children")
-                return
-
-            child = selected_item.children[0]
-            topic_name = str(child.renderable).strip()
-            print(f"[TOPIC LIST] Topic name: '{topic_name}'")
-
-            if self._current_topic == topic_name:
-                print(f"[TOPIC LIST] Same topic, skipping: {topic_name}")
-                return
-
-            # Only process valid topic names (should start with /)
-            if topic_name.startswith("/"):
-                self.selected_topic_name = topic_name
-                self._current_topic = topic_name
-                print(f"[TOPIC LIST] Selected topic: {topic_name}")
-
-                if self._highlight_task and not self._highlight_task.done():
-                    print("[TOPIC LIST] Cancelling previous task")
-                    self._highlight_task.cancel()
-                
-                print("[TOPIC LIST] Starting delayed update task")
-                self._highlight_task = asyncio.create_task(self._delayed_update())
-            else:
-                self.selected_topic_name = None
-                print(f"[TOPIC LIST] Invalid topic name: {topic_name}")
-
-        except Exception as e:
-            print(f"[topic highlight error] {e}")
-            import traceback
-            traceback.print_exc()
+        index = self.listview.index
+        print(f"[TOPIC LIST] Highlighted event, index: {index}")
+        
+        if index is None or index < 0 or index >= len(self.listview.children):
             self.selected_topic_name = None
+            print("[TOPIC LIST] Invalid index")
+            return
+
+        selected_item = self.listview.children[index]
+        if not selected_item.children:
+            self.selected_topic_name = None
+            print("[TOPIC LIST] No children")
+            return
+
+        child = selected_item.children[0]
+        topic_name = str(child.renderable).strip()
+        print(f"[TOPIC LIST] Topic name: '{topic_name}'")
+
+        if self._current_topic == topic_name:
+            print(f"[TOPIC LIST] Same topic, skipping: {topic_name}")
+            return
+
+        # Only process valid topic names (should start with /)
+        if topic_name.startswith("/"):
+            self.selected_topic_name = topic_name
+            self._current_topic = topic_name
+            print(f"[TOPIC LIST] Selected topic: {topic_name}")
+
+            if self._highlight_task and not self._highlight_task.done():
+                print("[TOPIC LIST] Cancelling previous task")
+                self._highlight_task.cancel()
+            
+            print("[TOPIC LIST] Starting delayed update task")
+            self._highlight_task = asyncio.create_task(self._delayed_update())
+        else:
+            self.selected_topic_name = None
+            print(f"[TOPIC LIST] Invalid topic name: {topic_name}")
+
 
     async def _delayed_update(self):
         """Delayed update similar to NodeListWidget."""
@@ -346,7 +340,7 @@ class TopicListWidget(Container):
 
         try:
             # Check if we're in topics mode
-            if hasattr(self.app, 'current_right_pane_config') and self.app.current_right_pane_config == "topics":
+            if hasattr(self.app, 'current_right_pane_config') and self.app.current_right_pane_config == "topic":
                 # Update Info tab directly like NodeListWidget does
                 try:
                     info_widget = self.app.query_one("#topic-info-view-content")
