@@ -29,14 +29,21 @@ class ParameterInfoWidget(Container):
         self.info_log = RichLog(wrap=True, highlight=True, markup=True, id="parameter-info-log", max_lines=1000)
         self.current_parameter = None
 
-        self.ros_node.create_timer(0.01, self.display_parameter_info)
+        self.ros_node.create_timer(0.1, self.display_parameter_info)
 
     def compose(self) -> ComposeResult:
         yield self.info_log
 
+    #def on_mount(self) -> None:
+    #    self.set_interval(0.5, self.display_parameter_info)
+
     def display_parameter_info(self):
         """Display the information of a parameter using `ros2 param describe` command."""
         
+        if self.current_parameter is None:
+            self.info_log.clear()
+            self.info_log.write("[red]No parameter is selected yet.[/]")   
+
         try:
             match = re.fullmatch(r"([^:]+):\s*(.+)", self.current_parameter)
             if not match:

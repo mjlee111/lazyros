@@ -93,6 +93,11 @@ class InfoViewWidget(Container):
             self.info_log.write("[red]No node is selected yet.[/]")
             return
 
+        if self.selected_node_data.status != "green":
+            self.info_log.clear()
+            self.info_log.write("[red]Selected node is shutdown.[/]")
+            return
+
         if self.selected_node_data.full_name == self.current_node_full_name:
             return
         

@@ -32,7 +32,11 @@ class ParameterValueWidget(Container):
 
     def display_parameter_value(self):
         """Display the value of a parameter using `ros2 param get` command."""
-        
+
+        if self.current_parameter is None:
+            self.value_log.clear()
+            self.value_log.write("[red]No parameter is selected yet.[/]")   
+
         try:
             match = re.fullmatch(r"([^:]+):\s*(.+)", self.current_parameter)
             if not match:
