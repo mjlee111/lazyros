@@ -38,7 +38,6 @@ class NodeListWidget(Container):
         self.previous_node_names = set()
         self.selected_node_name = None
         self.ignore_parser = IgnoreParser(ignore_file_path)
-        self.launched_nodes = {}
 
         self._highlight_task = None
         self._highlight_lock = asyncio.Lock()
@@ -112,11 +111,11 @@ class NodeListWidget(Container):
              
         self.listview.extend(nodes)
 
-        current_index = self.listview.index
-        if current_index is not None and current_index < len(nodes):
-            self.listview.index = current_index
-        elif nodes:
-            self.listview.index = 0
+        #current_index = self.listview.index
+        #if current_index is not None and current_index < len(nodes):
+        #    self.listview.index = current_index
+        #elif nodes:
+        #    self.listview.index = 0
 
     def on_list_view_highlighted(self, event):
         index = self.listview.index

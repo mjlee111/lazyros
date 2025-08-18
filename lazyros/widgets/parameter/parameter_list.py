@@ -19,145 +19,119 @@ from rich.markup import escape
 from lazyros.modals.parameter_value_modal import ParameterValueModal
 from lazyros.modals.set_parameter_modal import SetParameterModal
 from lazyros.utils.ignore_parser import IgnoreParser
+from rcl_interfaces.srv import ListParameters
 
+from dataclasses import dataclass
+from rclpy.callback_groups import ReentrantCallbackGroup
+import rclpy
+from rich.text import Text as RichText
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
     return escape(text)
 
+@dataclass
+class ParameterClients:
+    get_parameter: None
+    set_parameter: None
+
 class ParameterListWidget(Container):
-    """A widget to display the list of ROS parameters using 'ros2 param list'."""
+    """A widget to display the list of ROS parameters."""
 
     BINDINGS = [
         Binding("s", "set_selected_parameter", "Set Value", show=True),  # Add set binding
     ]
 
+    DEFAULT_CSS = """
+    ParameterListWidget {
+        overflow: hidden;
+    }
+
+    #scroll-area {
+        overflow-x: auto;
+        overflow-y: auto;
+        height: 1fr;
+    }
+    """
+
     def __init__(self, ros_node: Node, **kwargs) -> None:
         super().__init__(**kwargs)
         self.ros_node = ros_node
         self.listview = ListView()
+        self.node_listview = None
+
+        self.parameter_dict = {}
+        self.parameter_clients_dict = {}
+
+
         self.previous_parameters_display_list: List[str] = []
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="param_list")
         self._current_update_task: Optional[asyncio.Task] = None
         self.ignore_parser = IgnoreParser('config/display_ignore.yaml')
-        self._selected_param = None
+        self.selected_param = None
         self._last_processed_parameter = None
         
         self._highlight_task = None
 
-    def _log_error(self, msg: str):
-        if hasattr(self.ros_node, 'get_logger'):
-            self.ros_node.get_logger().error(f"[ParameterListWidget] {msg}")
-
     def compose(self) -> ComposeResult:
-        #yield Label("ROS Parameters:")
-        yield ScrollableContainer(self.listview)
+        yield self.listview
 
     def on_mount(self) -> None:
-        self.listview.initial_index = 0
-        self.set_interval(5, self.trigger_update_list)
-        self.trigger_update_list()
+        #asyncio.create_task(self.update_parameter_list())
+        self.set_interval(3, lambda: asyncio.create_task(self.update_parameter_list()))
 
-    def _parse_ros2_param_list_output(self, output: str) -> List[str]:
-        parsed_params: List[str] = []
-        current_node_name = None
-        lines = output.splitlines()
+        self.listview.focus()
+        if self.listview.children:
+            self.listview.index = 0
 
-        for line_raw in lines:
-            line = line_raw.strip()
-            if not line:
-                continue
-
-            if line.endswith(':'):
-                potential_node_name = line[:-1].strip()
-                if potential_node_name.startswith('/'):
-                    current_node_name = potential_node_name
-                else:
-                    current_node_name = None
-
-            elif current_node_name and line:
-                if line_raw.startswith("  ") and not line.startswith(" "):
-                    param_name = line.strip()
-                    if param_name:
-                        # Store raw text for parsing later, display escaped text
-                        parsed_params.append(escape_markup(f"{current_node_name}: {param_name}"))
-
-        parsed_params.sort()
-        return parsed_params
-
-    def _fetch_and_parse_parameters(self) -> List[str]:
-        try:
-            cmd = "ros2 param list"
-            process_result = subprocess.run(
-                cmd, shell=True, capture_output=True, text=True, timeout=10
-            )
-
-            if process_result.returncode == 0:
-                if process_result.stdout:
-                    output_str = process_result.stdout.strip()
-                    if output_str:
-                        parsed_list = self._parse_ros2_param_list_output(output_str)
-
-                        # Filter parameters based on the ignore list
-                        filtered_params = [
-                            param_str for param_str in parsed_list
-                            if not self.ignore_parser.should_ignore(param_str, 'parameter')
-                        ]
-
-                        if not filtered_params:
-                            return ["[No parameters found after filtering]"]
-                        return filtered_params
-                    else:
-                        return ["[No parameters found: 'ros2 param list' returned empty output]"]
-                else:
-                    return ["['ros2 param list' succeeded but gave no stdout]"]
-            else:
-                err_msg = process_result.stderr.strip() if process_result.stderr else "Unknown error"
-                # self._log_error(f"Thread: 'ros2 param list' failed. RC: {process_result.returncode}. Error: {err_msg}")
-                return [escape_markup(f"[Error (RC {process_result.returncode}) running 'ros2 param list'. See logs]")]
-
-        except subprocess.TimeoutExpired:
-            # self._log_error("Thread: 'ros2 param list' command timed out.")
-            return ["[Error: 'ros2 param list' command timed out. Check ROS environment]"]
-
-        except Exception as e:
-            # self._log_error(f"Thread: Error during parameter list fetch: {type(e).__name__} - {str(e)}")
-            return [escape_markup(f"[General Error in list fetch thread: {type(e).__name__}. See logs]")]
-
-    def _update_view(self, new_params_list: List[str]):
-        """Update the parameter list view with new data."""
-
-        if self.previous_parameters_display_list != new_params_list:
-            self.listview.clear()
-            items = [ListItem(Label(param_str)) for param_str in new_params_list] if new_params_list else [ListItem(Label("[No parameters available or error during fetch]"))]
-            self.listview.extend(items)
-            if items and (self.listview.index is None or self.listview.index >= len(items)):
-                self.listview.index = 0
-            elif not items:
-                self.listview.index = None
-            self.previous_parameters_display_list = new_params_list
-
-    async def _update_list_async(self) -> None:
-        """Asynchronously update the parameter list."""
-
-        try:
-            result = await asyncio.get_event_loop().run_in_executor(
-                self._executor, self._fetch_and_parse_parameters
-            )
-            self._update_view(result)
-        except asyncio.CancelledError:
-            pass
-        except Exception as e:
-            self._log_error(f"Error during async parameter list update: {e}")
-            self._update_view([f"[Error during update: {e}]"])
-
-    def trigger_update_list(self) -> None:
-        """Trigger an update of the parameter list, cancelling any existing update."""
-
-        if self._current_update_task and not self._current_update_task.done():
-            self._current_update_task.cancel()
+    def list_parameters(self, node_name):
+        list_parameter_client = self.ros_node.create_client(ListParameters, f"{node_name}/list_parameters", callback_group=ReentrantCallbackGroup())
         
-        self._current_update_task = asyncio.create_task(self._update_list_async())
+        req = ListParameters.Request()
+        future = list_parameter_client.call_async(req)
+        rclpy.spin_until_future_complete(self.ros_node, future)
+        if not future.done() or future.result() is None:
+            return None
+        
+        result = future.result().result
+        return result.names
+
+    async def update_parameter_list(self):
+        if not self.node_listview:
+            self.node_listview = self.app.query_one("#node-listview")
+        
+        current_index = self.listview.index
+        need_update = False 
+        node_list = list(self.node_listview.node_listview_dict.keys())
+        for node in node_list:
+            if node not in self.parameter_dict:
+                need_update = True
+                parameters = self.list_parameters(node)
+                if parameters:
+                    self.parameter_dict[node] = parameters
+
+            elif self.node_listview.node_listview_dict[node].status != "green":
+                self.parameter_dict.pop(node)
+                need_update = True            
+
+        if not need_update:
+            return
+        # update parameter listview
+        self.listview.clear()
+        parameter_list = []
+        node_list = list(self.parameter_dict.keys())
+        for node in node_list:
+            for parameter in self.parameter_dict[node]:
+                if not self.ignore_parser.should_ignore(parameter, 'parameter'):
+                    label = RichText.assemble(
+                        RichText(node),
+                        ": ",
+                        RichText(parameter)
+                    )
+                    parameter_list.append(ListItem(Label(label)))
+
+        self.listview.extend(parameter_list)
+        self.listview.index = 0
 
     def _parse_selected_item(self, item_text: str) -> Optional[Tuple[str, str]]:
         """Regex to capture node_name and param_name from "node_name: param_name."""
@@ -167,52 +141,29 @@ class ParameterListWidget(Container):
             node_name = match.group(1).strip()
             param_name = match.group(2).strip()
             return node_name, param_name
-        # self._log_error(f"Could not parse selected item: '{item_text}'")
         return None
 
-
     def on_list_view_highlighted(self, event):
-        """Handle when a parameter is highlighted/selected in the ListView."""
+        index = self.listview.index
+        if index is None or not (0 <= index < len(self.listview.children)):
+            self.selected_parame = None
+            return
+        item = self.listview.children[index]
+        if not item.children:
+            self.selected_param = None
+            return
 
-        try:
-            index = self.listview.index
-            
-            if index is None or index < 0 or index >= len(self.listview.children):
-                self._selected_param = None
-                return
-            
-            selected_item = self.listview.children[index]
-            if not selected_item.children:
-                self._selected_param = None
-                return
-            
-            child = selected_item.children[0]
-            parameter_text = str(child.renderable).strip()
-            
-            if self._last_processed_parameter == parameter_text:
-                return
-                
-            if ":" in parameter_text and not parameter_text.startswith("["):
-                self._selected_param = parameter_text
-                self._last_processed_parameter = parameter_text
-                
-                if self._highlight_task and not self._highlight_task.done():
-                    self._highlight_task.cancel()
-                self._highlight_task = asyncio.create_task(self._update_window_display())
+        param_name = str(item.children[0].renderable).strip()
 
-            else:
-                self._selected_param = None
-                self._last_processed_parameter = None
-                
-        except Exception:
-            self._selected_param = None
-            self._last_processed_parameter = None
+        if self.selected_param != param_name:
+            self.selected_param = param_name
+        self.update_window_display()
 
 
-    async def _update_window_display(self):
+    def update_window_display(self):
         """Update main window display"""
 
-        if not self._selected_param or not ":" in self._selected_param:
+        if not self.selected_param or not ":" in self.selected_param:
             self.log.error("No valid parameter selected for display update.")
             return
 
@@ -220,10 +171,10 @@ class ParameterListWidget(Container):
             if self.app.current_right_pane_config == "parameter":
                 try:
                     info_widget = self.app.query_one("#parameter-info-view-content")
-                    info_widget.current_parameter = self._selected_param
+                    info_widget.current_parameter = self.selected_param
                 
                     value_widget = self.app.query_one("#parameter-value-view-content")
-                    value_widget.current_parameter = self._selected_param
+                    value_widget.current_parameter = self.selected_param
 
                 except Exception:
                     self.log.error("Error updating parameter display widgets.")
