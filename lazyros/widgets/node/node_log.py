@@ -6,6 +6,8 @@ from textual.widgets import RichLog
 from rich.markup import escape
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.qos import QoSProfile
+import re    
+
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
@@ -36,13 +38,10 @@ class LogViewWidget(Container):
             qos_profile,
             callback_group=ReentrantCallbackGroup()
         )
+        self.ros_node.create_timer(1, self.display_logs, callback_group=ReentrantCallbackGroup())
 
     def compose(self) -> ComposeResult:
         yield self.rich_log
-
-    def on_mount(self) -> None:
-        #self.set_interval(0.5, self.display_logs)
-        pass
 
     def _level_to_char(self, level: int) -> str:
         if level == Log.DEBUG[0]: return "DEBUG" # Compare with Log.DEBUG directly
@@ -52,12 +51,21 @@ class LogViewWidget(Container):
         if level == Log.FATAL[0]: return "FATAL"
         return "?"
 
+    def _level_to_char_jazzy(self, level: int) -> str:
+        if level == Log.DEBUG: return "DEBUG" # Compare with Log.DEBUG directly
+        if level == Log.INFO: return "INFO"
+        if level == Log.WARN: return "WARN"
+        if level == Log.ERROR: return "ERROR"
+        if level == Log.FATAL: return "FATAL"
+        return "?"
+
     def log_callback(self, msg: Log) -> None:
         """Callback to handle incoming log messages."""
 
         time_str = f"{msg.stamp.sec + msg.stamp.nanosec / 1e9:.6f}"
         level_style = self.log_level_styles.get(msg.level, "[dim white]")
-        level_char = self._level_to_char(msg.level)
+        #level_char = self._level_to_char(msg.level)
+        level_char = self._level_to_char_jazzy(msg.level)
         
         escaped_msg_content = str(msg.msg).replace("[", "\\[")
 
@@ -72,11 +80,15 @@ class LogViewWidget(Container):
             self.logs_by_node[msg.name] = []
         self.logs_by_node[msg.name].append(formatted_log)
             
-
     def display_logs(self):
         """Display logs for the currently selected node. """
 
-        self.rich_log.clear()
+        self.node_listview = self.app.query_one("#node-listview")
+        node_name = self.node_listview.selected_node_name
+        if node_name:
+            self.selected_node = re.sub(r'^/', '', node_name).replace('/', '.')
+
+        #self.rich_log.clear()
 
         if not self.selected_node:
             self.rich_log.write("[bold red]No log to display.[/]")
