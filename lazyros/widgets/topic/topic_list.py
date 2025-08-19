@@ -15,7 +15,7 @@ from rich.markup import escape
 from lazyros.modals.topic_info_modal import TopicInfoModal  # Import TopicInfoModal
 from lazyros.modals.topic_echo_modal import TopicEchoModal  # Import TopicEchoModal
 from lazyros.utils.ignore_parser import IgnoreParser  # Import IgnoreParser
-
+import os
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
@@ -51,7 +51,8 @@ class TopicListWidget(Container):
         self.is_searching = False
         self.previous_topic_data: dict[str, str] = {}
         self.current_search_term: str = ""
-        self.ignore_parser = IgnoreParser('config/display_ignore.yaml')
+        ignore_file_path = os.path.join(os.path.dirname(__file__), '../../../config/display_ignore.yaml')
+        self.ignore_parser = IgnoreParser(os.path.abspath(ignore_file_path))
         
         # NodeListWidget pattern
         self.selected_topic_name = None

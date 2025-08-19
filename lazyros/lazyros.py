@@ -26,8 +26,6 @@ from lazyros.widgets.parameter.parameter_list import ParameterListWidget
 from lazyros.widgets.parameter.parameter_value import ParameterValueWidget
 from lazyros.widgets.parameter.parameter_info import ParameterInfoWidget
 
-from lazyros.utils.utility import ros_spin_thread, signal_shutdown
-
 from textual.screen import ModalScreen
 
 
@@ -279,31 +277,17 @@ class LazyRosApp(App):
                 break
 
 def main(args=None):
+    from lazyros.utils.utility import start_ros_in_thread, stop_ros_thread
     rclpy.init(args=args)
-    ros_node = None
-    app: LazyRosApp | None = None  # type: ignore
-    ros_thread = None
+    ros_node = Node("lazyros_monitor_node")
     try:
-        ros_node = Node("lazyros_monitor_node")
-        ros_thread = threading.Thread(target=ros_spin_thread, args=(ros_node,), daemon=True)
-        ros_thread.start()
+        executor, ros_thread = start_ros_in_thread(ros_node)
         app = LazyRosApp(ros_node)
         app.run()
-
     except Exception as e:
-        print(f"Error initializing ROS or running the TUI: {e}")
+        print(f"Failed to start ROS node: {e}")
     finally:
-        signal_shutdown()
-
-        if ros_thread:
-            ros_thread.join(timeout=1.0)
-        if ros_node:
-            ros_node.destroy_node()
-        if rclpy.ok():
-            rclpy.shutdown()
-
-        print("LazyRos exited cleanly.")
-
+        stop_ros_thread(executor, ros_thread, ros_node)
 
 if __name__ == "__main__":
     main()

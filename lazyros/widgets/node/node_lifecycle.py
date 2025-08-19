@@ -110,7 +110,7 @@ class LifecycleWidget(Container):
 
         req = GetState.Request()
         future = lifecycle_client.call_async(req)
-        rclpy.spin_until_future_complete(self.ros_node, future)
+        self.ros_node.executor.spin_until_future_complete(future, timeout_sec=5.0)
         if not future.done() or future.result() is None:
             return f"[red]Failed to get lifecycle state for {full_name}[/]"
 

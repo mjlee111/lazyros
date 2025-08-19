@@ -4,6 +4,8 @@ from textual.app import ComposeResult
 from textual.containers import Container
 from textual.widgets import RichLog
 from rich.markup import escape
+from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.qos import QoSProfile
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
@@ -26,21 +28,21 @@ class LogViewWidget(Container):
         self.logs_by_node: dict[str, list[str]] = {}
         self.current_node = None
         self.selected_node = None
+        qos_profile = QoSProfile(depth=10)
+        self.ros_node.create_subscription(
+            Log,
+            '/rosout',
+            self.log_callback,
+            qos_profile,
+            callback_group=ReentrantCallbackGroup()
+        )
 
     def compose(self) -> ComposeResult:
         yield self.rich_log
 
     def on_mount(self) -> None:
-        try:
-            self.ros_node.create_subscription(
-                Log,
-                '/rosout',
-                self.log_callback,
-                10,
-            )
-            self.set_interval(0.5, self.display_logs)
-        except Exception as e:
-             self.rich_log.write(f"[bold red]Error creating /rosout subscriber: {e}[/]")
+        #self.set_interval(0.5, self.display_logs)
+        pass
 
     def _level_to_char(self, level: int) -> str:
         if level == Log.DEBUG[0]: return "DEBUG" # Compare with Log.DEBUG directly
@@ -52,27 +54,24 @@ class LogViewWidget(Container):
 
     def log_callback(self, msg: Log) -> None:
         """Callback to handle incoming log messages."""
+
+        time_str = f"{msg.stamp.sec + msg.stamp.nanosec / 1e9:.6f}"
+        level_style = self.log_level_styles.get(msg.level, "[dim white]")
+        level_char = self._level_to_char(msg.level)
         
-        try:
-            time_str = f"{msg.stamp.sec + msg.stamp.nanosec / 1e9:.6f}"
-            level_style = self.log_level_styles.get(msg.level, "[dim white]")
-            level_char = self._level_to_char(msg.level)
-            
-            escaped_msg_content = str(msg.msg).replace("[", "\\[")
+        escaped_msg_content = str(msg.msg).replace("[", "\\[")
 
-            formatted_log = (
-                f"{level_style}[{level_char}] "
-                f"{level_style}[{time_str}] "
-                f"{level_style}[{msg.name}] " 
-                f"{level_style}{escaped_msg_content}[/]"
-            )
+        formatted_log = (
+            f"{level_style}[{level_char}] "
+            f"{level_style}[{time_str}] "
+            f"{level_style}[{msg.name}] " 
+            f"{level_style}{escaped_msg_content}[/]"
+        )
 
-            if msg.name not in self.logs_by_node:
-                self.logs_by_node[msg.name] = []
-            self.logs_by_node[msg.name].append(formatted_log)
+        if msg.name not in self.logs_by_node:
+            self.logs_by_node[msg.name] = []
+        self.logs_by_node[msg.name].append(formatted_log)
             
-        except Exception as e:
-            print(f"Error processing log message in LogViewWidget: {e}")
 
     def display_logs(self):
         """Display logs for the currently selected node. """
