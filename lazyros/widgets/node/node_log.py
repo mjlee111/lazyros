@@ -51,21 +51,12 @@ class LogViewWidget(Container):
         if level == Log.FATAL[0]: return "FATAL"
         return "?"
 
-    def _level_to_char_jazzy(self, level: int) -> str:
-        if level == Log.DEBUG: return "DEBUG" # Compare with Log.DEBUG directly
-        if level == Log.INFO: return "INFO"
-        if level == Log.WARN: return "WARN"
-        if level == Log.ERROR: return "ERROR"
-        if level == Log.FATAL: return "FATAL"
-        return "?"
-
     def log_callback(self, msg: Log) -> None:
         """Callback to handle incoming log messages."""
 
         time_str = f"{msg.stamp.sec + msg.stamp.nanosec / 1e9:.6f}"
         level_style = self.log_level_styles.get(msg.level, "[dim white]")
-        #level_char = self._level_to_char(msg.level)
-        level_char = self._level_to_char_jazzy(msg.level)
+        level_char = self._level_to_char(msg.level)
         
         escaped_msg_content = str(msg.msg).replace("[", "\\[")
 
@@ -88,7 +79,7 @@ class LogViewWidget(Container):
         if node_name:
             self.selected_node = re.sub(r'^/', '', node_name).replace('/', '.')
 
-        #self.rich_log.clear()
+        self.rich_log.clear()
 
         if not self.selected_node:
             self.rich_log.write("[bold red]No log to display.[/]")
@@ -102,4 +93,3 @@ class LogViewWidget(Container):
                 self.rich_log.write(log_entry)
         else:
             self.rich_log.write(f"[yellow]No logs found for node: {self.current_node}[/]") 
-           

@@ -45,9 +45,12 @@ class ParameterListWidget(Container):
 
         ignore_file_path = os.path.join(os.path.dirname(__file__), '../../../config/display_ignore.yaml')
         self.ignore_parser = IgnoreParser(os.path.abspath(ignore_file_path))
+
         self.selected_param = None
         self.node_listview = None
         self.parameter_dict = {}
+
+        #self.ros_node.create_timer(1, self.update_parameter_list, callback_group=ReentrantCallbackGroup())
 
     def compose(self) -> ComposeResult:
         yield self.listview
@@ -55,7 +58,6 @@ class ParameterListWidget(Container):
     def on_mount(self) -> None:
         asyncio.create_task(self.update_parameter_list())
         self.set_interval(3, lambda: asyncio.create_task(self.update_parameter_list()))
-
         self.listview.focus()
         if self.listview.children:
             self.listview.index = 0
