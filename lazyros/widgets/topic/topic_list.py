@@ -58,14 +58,14 @@ class TopicListWidget(Container):
         if self.listview.children:
             self.listview.index = 0
 
-    def update_topic_list(self) -> None:
+    async def update_topic_list(self) -> None:
         """Fetch and update the list of topics."""
     
         topics = self.ros_node.get_topic_names_and_types()
         need_update = False
 
         for topic in topics:
-            if self.ignore_parser.should_ignore(topic[0]):
+            if self.ignore_parser.should_ignore(topic[0], 'topic'):
                 continue
             if topic[0] not in self.topic_dict:
                 need_update = True
@@ -77,8 +77,8 @@ class TopicListWidget(Container):
         self.listview.clear()
         topic_list = []
         for topic in list(self.topic_dict.keys()):
-            label = RichText(topic)
-            topic_list.append(label)
+            label = RichText.assemble(RichText(topic))
+            topic_list.append(ListItem(Label(label)))
         
         self.listview.extend(topic_list)
 
