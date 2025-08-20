@@ -30,7 +30,7 @@ class TopicInfoWidget(Container):
         self.selected_topic = None
         self.current_topic = None
 
-        self.ros_node.create_timer(1, self.update_info, callback_group=ReentrantCallbackGroup())
+        self.ros_node.create_timer(1, self.update_display, callback_group=ReentrantCallbackGroup())
 
     def compose(self) -> ComposeResult:
         yield self.info_log
