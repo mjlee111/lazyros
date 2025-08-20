@@ -9,7 +9,9 @@ from textual.widgets import RichLog
 from rich.markup import escape
 from rich.text import Text as RichText
 from rclpy.callback_groups import ReentrantCallbackGroup
-
+from rosidl_runtime_py.utilities import get_message
+from rclpy.callback_groups import ReentrantCallbackGroup
+from rclpy.qos import QoSProfile
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
@@ -37,6 +39,7 @@ class EchoViewWidget(Container):
 
         self.topic_listview = None
         self.echo_dict = None
+        self._sub = None
 
         self.ros_node.create_timer(1, self.update_display, callback_group=ReentrantCallbackGroup())
 
@@ -48,26 +51,33 @@ class EchoViewWidget(Container):
         self.selected_topic = self.topic_listview.selected_topic if self.topic_listview else None
 
         if self.selected_topic is None:
-            self.info_log.clear()
-            self.info_log.write("[red]No topic is selected yet.[/]")
+            self.echo_log.clear()
+            self.echo_log.write("[red]No topic is selected yet.[/]")
             return
 
         if self.selected_topic == self.current_topic:
             return
 
         self.current_topic = self.selected_topic
-        self.echo_log.clear()
+        #self.echo_log.clear()
         self.start_echo()
 
     def start_echo(self):
-        self.destroy_subscription(self._sub)
+        if self._sub is not None:
+            self.ros_node.destroy_subscription(self._sub)
 
         topic_dict = self.topic_listview.topic_dict if self.topic_listview else None
         if not topic_dict:
             return [f"[red]Topic {escape_markup(self.current_topic)} is not set.[/]"]
 
+
         topic_type = topic_dict.get(self.current_topic, None)
-        self._sub = self.create_subscription(topic_type, self.current_topic, self.echo_callback)
+        if not topic_type:
+            return [f"[red]Topic {escape_markup(self.current_topic)} is not valid.[/]"]
+
+        self.echo_log.write(f"[bold]Echoing topic: {escape_markup(self.current_topic)}, {topic_type[0]}[/bold]") 
+        msg_type = get_message(topic_type[0])
+        self._sub = self.ros_node.create_subscription(msg_type, self.current_topic, self.echo_callback, qos_profile=QoSProfile(depth=1), callback_group=ReentrantCallbackGroup())
 
     def echo_callback(self, msg):
         message = f"[dim]Message from {escape_markup(self.current_topic)}: [/dim] {escape_markup(str(msg.data))}"

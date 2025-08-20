@@ -12,7 +12,7 @@ def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
     return escape(text)
 
-class EchoViewWidget(Container):
+class EchoViewCopyWidget(Container):
     """Widget for displaying ROS topic echo messages."""
 
     DEFAULT_CSS = """
