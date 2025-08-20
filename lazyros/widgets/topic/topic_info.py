@@ -6,6 +6,7 @@ from textual.app import ComposeResult
 from textual.containers import Container
 from textual.widgets import RichLog
 from rich.markup import escape
+from rclpy.callback_groups import ReentrantCallbackGroup
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
@@ -29,33 +30,15 @@ class TopicInfoWidget(Container):
         self.selected_topic = None
         self.current_topic = None
 
-        self.topics = self.ros_node.get_topic_names_and_types()
+        self.ros_node.create_timer(1, self.update_info, callback_group=ReentrantCallbackGroup())
 
     def compose(self) -> ComposeResult:
         yield self.info_log
-        
-    def on_mount(self) -> None:
-        self.set_interval(0.5, self.update_info)  # Update info every 0.5 seconds
 
-    def show_topic_info(self) -> None:
-        if self.selected_topic in self.info_dict:
-            return self.info_dict[self.selected_topic]
-        
-        topic_types = dict(self.topics).get(self.selected_topic, [])
-        publisher_count = len(self.ros_node.get_publishers_info_by_topic(self.selected_topic))
-        subscription_count = len(self.ros_node.get_subscriptions_info_by_topic(self.selected_topic))
-        
-        info_lines = []
-        info_lines.append(f"Topic: {escape_markup(self.selected_topic)}")
-        info_lines.append(f"  Type: {escape_markup(', '.join(topic_types))}")
-        info_lines.append(f"  Publisher Count: {publisher_count}")
-        info_lines.append(f"  Subscription Count: {subscription_count}")
+    def update_display(self):
+        self.topic_listview = self.app.query_one("#topic-listview")
+        self.selected_topic = self.topic_listview.selected_topic if self.topic_listview else None
 
-        self.info_dict[self.selected_topic] = info_lines
-        
-        return info_lines 
-        
-    def update_info(self):
         if self.selected_topic is None:
             self.info_log.clear()
             self.info_log.write("[red]No node is selected yet.[/]")
@@ -68,4 +51,26 @@ class TopicInfoWidget(Container):
         self.info_log.clear()
         info_lines = self.show_topic_info()
         self.info_log.write("\n".join(info_lines))
+
+    def show_topic_info(self) -> None:
+        if self.selected_topic in self.info_dict:
+            return self.info_dict[self.selected_topic]
+        
+        topic_dict = self.topic_listview.topic_dict if self.topic_listview else None
+        if not topic_dict:
+            return [f"[red]Topic {escape_markup(self.selected_topic)} is not set.[/]"]
+
+        topic_types = dict(topic_dict).get(self.selected_topic, [])
+        publisher_count = len(self.ros_node.get_publishers_info_by_topic(self.selected_topic))
+        subscription_count = len(self.ros_node.get_subscriptions_info_by_topic(self.selected_topic))
+        
+        info_lines = []
+        info_lines.append(f"Topic: {escape_markup(self.selected_topic)}")
+        info_lines.append(f"  Type: {escape_markup(', '.join(topic_types))}")
+        info_lines.append(f"  Publisher Count: {publisher_count}")
+        info_lines.append(f"  Subscription Count: {subscription_count}")
+
+        self.info_dict[self.selected_topic] = info_lines
+        
+        return info_lines 
         
