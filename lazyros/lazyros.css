@@ -69,7 +69,6 @@ Horizontal {
 /* Style for the containers around each list and its title */
 .list-container {
     border:round white; /* Thin white border */
-    margin-bottom: 1; /* Add some space between the list containers */
     height: 1fr; /* Allow containers to share vertical space */
 }
 

@@ -10,6 +10,7 @@ node:
 topic:
   # Add topic patterns here if needed
 parameter:
+  /lazyros_monitor_node*
   /launch_ros*
   /rosbridge*
   /robot_state_publisher*

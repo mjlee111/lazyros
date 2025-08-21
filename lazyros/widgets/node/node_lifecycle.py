@@ -57,6 +57,10 @@ class LifecycleWidget(Container):
             self.info_log.write("[red]No node is selected yet.[/]")
             return
 
+        if self.selected_node_data.status != "green":
+            self.info_log.clear()
+            self.info_log.write("[red]Selected node is shutdown.[/]")
+
         # Node is the same, no need to update
         if self.selected_node_data.full_name == self.current_node_full_name:
             return
@@ -106,7 +110,7 @@ class LifecycleWidget(Container):
 
         req = GetState.Request()
         future = lifecycle_client.call_async(req)
-        rclpy.spin_until_future_complete(self.ros_node, future)
+        self.ros_node.executor.spin_until_future_complete(future, timeout_sec=5.0)
         if not future.done() or future.result() is None:
             return f"[red]Failed to get lifecycle state for {full_name}[/]"
 

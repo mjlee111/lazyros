@@ -35,24 +35,16 @@ class NodeListWidget(Container):
         self.listview = ListView()
         self.node_listview_dict = {}
         
-        self.previous_node_names = set()
         self.selected_node_name = None
-        self.ignore_parser = IgnoreParser(ignore_file_path)
-        self.launched_nodes = {}
-
-        self._highlight_task = None
-        self._highlight_lock = asyncio.Lock()
-        self._last_highlight_time = 0.0
-        self._highlight_delay = 0.3
-        self._last_log_filter = None
-        self._current_node = None
+        ignore_file_path = os.path.join(os.path.dirname(__file__), '../../../config/display_ignore.yaml')
+        self.ignore_parser = IgnoreParser(os.path.abspath(ignore_file_path))
 
     def compose(self) -> ComposeResult:
         yield self.listview
 
     def on_mount(self) -> None:
         asyncio.create_task(self.update_node_list())
-        self.set_interval(3, lambda: asyncio.create_task(self.update_node_list()))
+        self.set_interval(1, lambda: asyncio.create_task(self.update_node_list()))
 
         self.listview.focus()
         if self.listview.children:
@@ -127,6 +119,7 @@ class NodeListWidget(Container):
         if not item.children:
             self.selected_node_name = None
             return
+
         # Extract the display name
         name_str = str(item.children[0].renderable).strip()
         # Extract node name after the first slash (if any)
@@ -134,7 +127,8 @@ class NodeListWidget(Container):
 
         if self.selected_node_name != node_name:
             self.selected_node_name = node_name
-        self.update_window_display()
+
+        #self.update_window_display()
 
     def update_window_display(self):
         if self.selected_node_name is None:
