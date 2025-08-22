@@ -59,7 +59,7 @@ class EchoViewWidget(Container):
             return
 
         self.current_topic = self.selected_topic
-        #self.echo_log.clear()
+        self.echo_log.clear()
         self.start_echo()
 
     def start_echo(self):
@@ -80,5 +80,5 @@ class EchoViewWidget(Container):
         self._sub = self.ros_node.create_subscription(msg_type, self.current_topic, self.echo_callback, qos_profile=QoSProfile(depth=1), callback_group=ReentrantCallbackGroup())
 
     def echo_callback(self, msg):
-        message = f"[dim]Message from {escape_markup(self.current_topic)}: [/dim] {escape_markup(str(msg.data))}"
+        message = f"[dim]Message from {escape_markup(self.current_topic)}: [/dim] {escape_markup(str(msg))}"
         self.echo_log.write(message)
