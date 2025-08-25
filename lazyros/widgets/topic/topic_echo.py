@@ -76,7 +76,12 @@ class EchoViewWidget(Container):
             return [f"[red]Topic {escape_markup(self.current_topic)} is not valid.[/]"]
 
         self.echo_log.write(f"[bold]Echoing topic: {escape_markup(self.current_topic)}, {topic_type[0]}[/bold]") 
-        msg_type = get_message(topic_type[0])
+        try:
+            msg_type = get_message(topic_type[0])
+        except Exception as e:
+            self.echo_log.write(f"[red]Failed to get message type for {escape_markup(self.current_topic)}: {escape_markup(str(e))}[/]")
+            return 
+
         self._sub = self.ros_node.create_subscription(msg_type, self.current_topic, self.echo_callback, qos_profile=QoSProfile(depth=1), callback_group=ReentrantCallbackGroup())
 
     def echo_callback(self, msg):
