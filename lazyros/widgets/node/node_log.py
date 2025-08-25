@@ -74,8 +74,8 @@ class LogViewWidget(Container):
     def display_logs(self):
         """Display logs for the currently selected node. """
 
-        self.node_listview = self.app.query_one("#node-listview")
-        node_name = self.node_listview.selected_node_name
+        node_listview = self.app.query_one("#node-listview")
+        node_name = node_listview.selected_node_name
         if node_name:
             self.selected_node = re.sub(r'^/', '', node_name).replace('/', '.')
 
