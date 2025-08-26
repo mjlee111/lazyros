@@ -7,14 +7,25 @@ from rich.markup import escape
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.qos import QoSProfile
 import re    
+from textual.binding import Binding
+from textual.events import Focus
 
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
     return escape(text)
 
+
 class LogViewWidget(Container):
     """A widget to display ROS logs from /rosout."""
+
+
+    BINDINGS = [
+        Binding("g,g", "go_top", "Top", show=False),
+        Binding("G", "go_bottom", "Bottom", show=False),
+        Binding("j", "scroll_down", "Scroll Down", show=False),
+        Binding("k", "scroll_up", "Scroll Up", show=False),
+    ]
 
     def __init__(self, ros_node: Node, **kwargs) -> None:
         super().__init__(**kwargs)
@@ -38,7 +49,8 @@ class LogViewWidget(Container):
             qos_profile,
             callback_group=ReentrantCallbackGroup()
         )
-        self.ros_node.create_timer(1, self.display_logs, callback_group=ReentrantCallbackGroup())
+        self.ros_node.create_timer(0.5, self.display_logs, callback_group=ReentrantCallbackGroup())
+        self._log_buffer = -1000 # for log buffer
 
     def compose(self) -> ComposeResult:
         yield self.rich_log
@@ -79,17 +91,37 @@ class LogViewWidget(Container):
         if node_name:
             self.selected_node = re.sub(r'^/', '', node_name).replace('/', '.')
 
-        self.rich_log.clear()
-
         if not self.selected_node:
+            self.rich_log.clear()
             self.rich_log.write("[bold red]No log to display.[/]")
             return
 
         if self.current_node != self.selected_node:
             self.current_node = self.selected_node
+            self._log_buffer = -1000 # reset
+            self.rich_log.clear()
 
         if self.current_node in self.logs_by_node:
-            for log_entry in self.logs_by_node[self.current_node][-200:]:
-                self.rich_log.write(log_entry)
+            logs = self.logs_by_node[self.current_node][self._log_buffer:]
+            self._log_buffer = len(self.logs_by_node[self.current_node])
+            for log in logs:
+                self.rich_log.write(log)
         else:
+            self.rich_log.clear()
             self.rich_log.write(f"[yellow]No logs found for node: {self.current_node}[/]") 
+
+    def action_go_top(self) -> None:
+        self.rich_log.action_scroll_home()
+        self.rich_log.auto_scroll = False
+
+    def action_go_bottom(self) -> None:
+        self.rich_log.action_scroll_end()
+        self.rich_log.auto_scroll = True
+
+    def action_scroll_up(self) -> None:
+        self.rich_log.action_scroll_up()
+        self.rich_log.auto_scroll = False
+
+    def action_scroll_down(self) -> None:
+        self.rich_log.action_scroll_down()
+        self.rich_log.auto_scroll = False

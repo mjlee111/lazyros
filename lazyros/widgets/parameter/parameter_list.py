@@ -18,10 +18,22 @@ from rcl_interfaces.srv import ListParameters
 
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rich.text import Text as RichText
+from textual.events import Focus
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
     return escape(text)
+
+
+class MyListView(ListView):
+    """Custom ListView that automatically focuses on mount."""
+
+    def on_focus(self, event: Focus) -> None:
+        self.log("focus")
+        if self.children and not self.index:
+            self.index = 0
+            self.refresh(layout=True)
+
 
 class ParameterListWidget(Container):
     """A widget to display the list of ROS parameters."""
@@ -41,7 +53,7 @@ class ParameterListWidget(Container):
     def __init__(self, ros_node: Node, **kwargs) -> None:
         super().__init__(**kwargs)
         self.ros_node = ros_node
-        self.listview = ListView()
+        self.listview = MyListView()
 
         ignore_file_path = os.path.join(os.path.dirname(__file__), '../../../config/display_ignore.yaml')
         self.ignore_parser = IgnoreParser(os.path.abspath(ignore_file_path))
@@ -58,7 +70,6 @@ class ParameterListWidget(Container):
     def on_mount(self) -> None:
         asyncio.create_task(self.update_parameter_list())
         self.set_interval(3, lambda: asyncio.create_task(self.update_parameter_list()))
-        self.listview.focus()
         if self.listview.children:
             self.listview.index = 0
 

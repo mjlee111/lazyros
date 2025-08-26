@@ -16,11 +16,21 @@ from lazyros.utils.ignore_parser import IgnoreParser
 import os
 
 from rich.text import Text as RichText
+from textual.events import Focus
+from textual import on
+
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
     return escape(text)
 
+class MyListView(ListView):
+    """Custom ListView that automatically focuses on mount."""
+
+    def on_focus(self, event: Focus) -> None:
+        if self.children and not self.index:
+            self.index = 0
+            self.refresh(layout=True)
 
 class TopicListWidget(Container):
     """A widget to display the list of ROS topics."""
@@ -40,7 +50,7 @@ class TopicListWidget(Container):
     def __init__(self, ros_node: Node, **kwargs):
         super().__init__(**kwargs)
         self.ros_node = ros_node
-        self.listview = ListView()
+        self.listview = MyListView()
 
         ignore_file_path = os.path.join(os.path.dirname(__file__), '../../../config/display_ignore.yaml')
         self.ignore_parser = IgnoreParser(os.path.abspath(ignore_file_path))
@@ -53,8 +63,7 @@ class TopicListWidget(Container):
 
     def on_mount(self) -> None:
         asyncio.create_task(self.update_topic_list())
-        self.set_interval(2, lambda: asyncio.create_task(self.update_topic_list()))
-        self.listview.focus()
+        self.set_interval(1, lambda: asyncio.create_task(self.update_topic_list()))
         if self.listview.children:
             self.listview.index = 0
 

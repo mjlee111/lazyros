@@ -178,6 +178,7 @@ class LazyRosApp(App):
 
         self.focused_pane = "right"
         self._reset_frame_highlight()
+        self._focus_right_pane_tab()
 
     def action_focus_left_pane(self) -> None:
         """Focus the left pane and highlight it."""
@@ -221,10 +222,11 @@ class LazyRosApp(App):
 
     def _focus_right_pane_tab(self):
         """Focus the right pane tab based on the current configuration."""
-        
+
         left_container = self._left_containers[self.current_pane_index]
-        self.query_one(f'#{left_container}-tabs').focus()
-   
+        tabs = self.query_one(f'#{left_container}-tabs')
+        tabs.focus()
+
     def _focus_left_pane_listview(self):
         """Focus the left pane listview based on the current configuration."""
         
@@ -254,7 +256,7 @@ class LazyRosApp(App):
         current_listview = self._left_containers[self.current_pane_index]
         tabs = self.query_one(f'#{current_listview}-tabs')
         current_tab = tabs.active
-        
+
         if self.TAB_ID_DICT[current_listview][0] == current_tab:
             return
         for i in self.TAB_ID_DICT[current_listview][1:]:
@@ -264,7 +266,7 @@ class LazyRosApp(App):
 
     def action_next_tab(self):
         """Focus the right pane tab based on the current configuration."""
-        
+
         current_listview = self._left_containers[self.current_pane_index]
         tabs = self.query_one(f'#{current_listview}-tabs')
         current_tab = tabs.active
