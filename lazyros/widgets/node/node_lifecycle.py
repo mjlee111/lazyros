@@ -60,7 +60,7 @@ class LifecycleWidget(Container):
     def __init__(self, ros_node: Node, **kwargs) -> None:
         super().__init__(**kwargs)
         self.ros_node = ros_node
-        self.info_log = RichLog(wrap=True, highlight=True, markup=True, id="lifecycle-state", max_lines=1000)
+        self.rich_log = RichLog(wrap=True, highlight=True, markup=True, id="lifecycle-state", max_lines=1000)
         self.transition_log = RichLog(wrap=True, highlight=True, markup=True, id="lifecycle-transition", max_lines=1000)
         self.lifecycle_dict: dict[str, list[str]] = {}
         
@@ -69,7 +69,7 @@ class LifecycleWidget(Container):
 
 
     def compose(self) -> ComposeResult:
-        yield self.info_log
+        yield self.rich_log
         with Vertical(id="lifecycle-transitions"):
             yield Label("Available Lifecycle Transitions:")
             yield Horizontal(id="lifecycle-transition-buttons")
@@ -96,30 +96,30 @@ class LifecycleWidget(Container):
         self.selected_node_data = node_listview.node_listview_dict["/"+node_listview.selected_node_name]
 
         if self.selected_node_data is None:
-            self.info_log.clear()
-            self.info_log.write("[red]No node is selected yet.[/]")
+            self.rich_log.clear()
+            self.rich_log.write("[red]No node is selected yet.[/]")
             return
 
         if self.selected_node_data.status != "green":
-            self.info_log.clear()
-            self.info_log.write("[red]Selected node is shutdown.[/]")
+            self.rich_log.clear()
+            self.rich_log.write("[red]Selected node is shutdown.[/]")
 
         # Node is the same, no need to update
         #if self.selected_node_data.full_name == self.current_node_full_name:
         #    return
                
-        self.info_log.clear()
+        self.rich_log.clear()
         self.current_node_full_name = self.selected_node_data.full_name
         if self.selected_node_data.full_name not in self.lifecycle_dict:
             self.create_lifecycle_data()
 
         self.trans_section.add_class("hidden")
         if not self.lifecycle_dict[self.selected_node_data.full_name].is_lifecycle:
-            return self.info_log.write(f"[red]Node {self.selected_node_data.full_name} is not a lifecycle node.[/]")
+            return self.rich_log.write(f"[red]Node {self.selected_node_data.full_name} is not a lifecycle node.[/]")
         
         self.trans_section.remove_class("hidden")
         info_lines = self.get_lifecycle_state()
-        self.info_log.write("\n".join(info_lines))
+        self.rich_log.write("\n".join(info_lines))
 
         if self.lifecycle_dict[self.selected_node_data.full_name].state_changed:
             self.update_transition_buttons()

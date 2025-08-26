@@ -23,14 +23,14 @@ class InfoViewWidget(Container):
     def __init__(self, ros_node: Node, **kwargs) -> None:
         super().__init__(**kwargs)
         self.ros_node = ros_node # May not be directly used if info comes from subprocess
-        self.info_log = RichLog(wrap=True, highlight=True, markup=True, id="info-log", max_lines=1000)
+        self.rich_log = RichLog(wrap=True, highlight=True, markup=True, id="info-log", max_lines=1000)
         self.info_dict: dict[str, list[str]] = {} # Cache for node info
         
         self.selected_node_data = None
         self.current_node_full_name = None
 
     def compose(self) -> ComposeResult:
-        yield self.info_log
+        yield self.rich_log
         
     def on_mount(self) -> None:
         self.set_interval(0.5, self.update_info)  # Update info every 0.5 seconds
@@ -92,19 +92,19 @@ class InfoViewWidget(Container):
         self.selected_node_data = node_listview.node_listview_dict["/"+node_listview.selected_node_name]
 
         if self.selected_node_data is None:
-            self.info_log.clear()
-            self.info_log.write("[red]No node is selected yet.[/]")
+            self.rich_log.clear()
+            self.rich_log.write("[red]No node is selected yet.[/]")
             return
 
         if self.selected_node_data.status != "green":
-            self.info_log.clear()
-            self.info_log.write("[red]Selected node is shutdown.[/]")
+            self.rich_log.clear()
+            self.rich_log.write("[red]Selected node is shutdown.[/]")
             return
 
         if self.selected_node_data.full_name == self.current_node_full_name:
             return
         
         self.current_node_full_name = self.selected_node_data.full_name
-        self.info_log.clear()
+        self.rich_log.clear()
         info_lines = self.show_node_info()
-        self.info_log.write("\n".join(info_lines))
+        self.rich_log.write("\n".join(info_lines))

@@ -16,21 +16,37 @@ def escape_markup(text: str) -> str:
     return escape(text)
 
 
+class MyRichLog(RichLog):
+    BINDINGS = [
+        Binding("g,g", "go_top", "Top", show=False),     # gg -> 先頭へ
+        Binding("G", "go_bottom", "Bottom", show=False), # G  -> 末尾へ
+        Binding("j", "scroll_down", "Down", show=False), # 1行下
+        Binding("k", "scroll_up", "Up", show=False),     # 1行上
+    ]
+
+    def action_go_top(self) -> None:
+        super().action_scroll_home()
+        self.auto_scroll = False
+
+    def action_go_bottom(self) -> None:
+        super().action_scroll_end()
+        self.auto_scroll = True
+
+    def action_scroll_up(self) -> None:
+        super().action_scroll_up()
+        self.auto_scroll = False
+
+    def action_scroll_down(self) -> None:
+        super().action_scroll_down()
+        self.auto_scroll = False
+
 class LogViewWidget(Container):
     """A widget to display ROS logs from /rosout."""
-
-
-    BINDINGS = [
-        Binding("g,g", "go_top", "Top", show=False),
-        Binding("G", "go_bottom", "Bottom", show=False),
-        Binding("j", "scroll_down", "Scroll Down", show=False),
-        Binding("k", "scroll_up", "Scroll Up", show=False),
-    ]
 
     def __init__(self, ros_node: Node, **kwargs) -> None:
         super().__init__(**kwargs)
         self.ros_node = ros_node
-        self.rich_log = RichLog(wrap=True, highlight=True, markup=True, max_lines=1000, auto_scroll=True) 
+        self.rich_log = MyRichLog(wrap=True, highlight=True, markup=True, max_lines=1000, auto_scroll=True) 
         self.log_level_styles = {
             Log.DEBUG: "[dim cyan]",
             Log.INFO: "[dim white]",
@@ -110,18 +126,3 @@ class LogViewWidget(Container):
             self.rich_log.clear()
             self.rich_log.write(f"[yellow]No logs found for node: {self.current_node}[/]") 
 
-    def action_go_top(self) -> None:
-        self.rich_log.action_scroll_home()
-        self.rich_log.auto_scroll = False
-
-    def action_go_bottom(self) -> None:
-        self.rich_log.action_scroll_end()
-        self.rich_log.auto_scroll = True
-
-    def action_scroll_up(self) -> None:
-        self.rich_log.action_scroll_up()
-        self.rich_log.auto_scroll = False
-
-    def action_scroll_down(self) -> None:
-        self.rich_log.action_scroll_down()
-        self.rich_log.auto_scroll = False

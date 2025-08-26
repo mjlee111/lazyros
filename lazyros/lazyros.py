@@ -149,14 +149,14 @@ class LazyRosApp(App):
             with Container(classes="right-pane", id="right-frame"):
                 with TabbedContent("Log", "Lifecycle", "Info", id="node-tabs"):
                     with TabPane("Log", id="log"):
-                        yield LogViewWidget(self.ros_node, id="log-view-content")
+                        yield LogViewWidget(self.ros_node, id="node-log-view-content")
                     with TabPane("Lifecycle", id="lifecycle"):
-                        yield LifecycleWidget(self.ros_node, id="lifecycle-view-content")
+                        yield LifecycleWidget(self.ros_node, id="node-lifecycle-view-content")
                     with TabPane("Info", id="info"):
-                        yield InfoViewWidget(self.ros_node, id="info-view-content")
+                        yield InfoViewWidget(self.ros_node, id="node-info-view-content")
                 with TabbedContent("Info", "Echo", id="topic-tabs", classes="hidden"):
                     with TabPane("Echo", id="echo"):
-                        yield EchoViewWidget(self.ros_node, id="echo-view-content")
+                        yield EchoViewWidget(self.ros_node, id="topic-echo-view-content")
                     with TabPane("Info", id="info"):
                         yield TopicInfoWidget(self.ros_node, id="topic-info-view-content")
                 with TabbedContent("Info", "Value", id="parameter-tabs", classes="hidden"):
@@ -185,6 +185,7 @@ class LazyRosApp(App):
 
         self.focused_pane = "left"
         self._reset_frame_highlight()
+        self._focus_current_listview()
 
     def action_focus_next_listview(self) -> None:
 
@@ -225,7 +226,8 @@ class LazyRosApp(App):
 
         left_container = self._left_containers[self.current_pane_index]
         tabs = self.query_one(f'#{left_container}-tabs')
-        tabs.focus()
+
+        self.query_one(f'#{left_container}-{tabs.active}-view-content').rich_log.focus()
 
     def _focus_left_pane_listview(self):
         """Focus the left pane listview based on the current configuration."""
@@ -263,6 +265,7 @@ class LazyRosApp(App):
             if current_tab == i:
                 tabs.active = self.TAB_ID_DICT[current_listview][self.TAB_ID_DICT[current_listview].index(i) - 1]
                 break
+        self.query_one(f'#{current_listview}-{tabs.active}-view-content').rich_log.focus()
 
     def action_next_tab(self):
         """Focus the right pane tab based on the current configuration."""
@@ -277,6 +280,7 @@ class LazyRosApp(App):
             if current_tab == i:
                 tabs.active = self.TAB_ID_DICT[current_listview][self.TAB_ID_DICT[current_listview].index(i) + 1]
                 break
+        self.query_one(f'#{current_listview}-{tabs.active}-view-content').rich_log.focus()
 
 def main(args=None):
     from lazyros.utils.utility import start_ros_in_thread, stop_ros_thread
