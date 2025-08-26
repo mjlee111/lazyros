@@ -3,7 +3,7 @@ import subprocess
 from rclpy.node import Node
 from rclpy.action import graph
 from textual.app import ComposeResult
-from textual.containers import Container, Horizontal
+from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import RichLog, Button, Label
 from rich.markup import escape
 from dataclasses import dataclass
@@ -24,64 +24,75 @@ class LifecycleData:
     get_lifecycle_client: callable
     change_lifecycle_client: callable
     get_transition_client: callable
-    current_lifecycle_id: int = None 
-    current_transition_id: List[int] = None
+    current_lifecycle_id: int = None
     state_changed: bool = False
 
 class LifecycleWidget(Container):
     """Widget for displaying ROS node information."""
 
     DEFAULT_CSS = """
-    #lifecycle-state {
-        height: 1fr;      /* 通常は全体に広がる */
-        max-height: 30%;  /* でも画面の 30% まで */
-    }
-    #lifecycle-transitions > Button {
-        margin: 0 1;
-        padding: 0 2;
-        height: 3;
-        min-width: 10;
+        .hidden {
+            display: none;
+        }
+        #lifecycle-state {
+            height: 1fr;
+            max-height: 30%;
+        }
+        #lifecycle-transition-buttons > Button {
+            margin: 0 1;
+            padding: 0 2;
+            height: 3;
+            min-width: 10;
 
-        background: black;
-        color: white;
-        border: round white;
-    }
-    #lifecycle-transitions > Button:hover {
-        background: white;
-        color: black;
-    }
-    #lifecycle-transitions > Button:focus {
-        border: heavy white;
-    }
+            background: black;
+            color: white;
+            border: round white;
+        }
+        #lifecycle-transition-buttons > Button:hover {
+            background: white;
+            color: black;
+        }
+        #lifecycle-transition-buttons > Button:focus {
+            border: heavy white;
+        }
     """
 
     def __init__(self, ros_node: Node, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.ros_node = ros_node # May not be directly used if info comes from subprocess
+        self.ros_node = ros_node
         self.info_log = RichLog(wrap=True, highlight=True, markup=True, id="lifecycle-state", max_lines=1000)
-        self.lifecycle_dict: dict[str, list[str]] = {} # Cache for node info
+        self.transition_log = RichLog(wrap=True, highlight=True, markup=True, id="lifecycle-transition", max_lines=1000)
+        self.lifecycle_dict: dict[str, list[str]] = {}
         
         self.selected_node_data = None
         self.current_node_full_name = None
 
+
     def compose(self) -> ComposeResult:
         yield self.info_log
-        yield Horizontal(id="lifecycle-transitions")
+        with Vertical(id="lifecycle-transitions"):
+            yield Label("Available Lifecycle Transitions:")
+            yield Horizontal(id="lifecycle-transition-buttons")
 
     def on_mount(self) -> None:
-        self.set_interval(0.5, self.update_display)  # Update info every 0.5 seconds
+        self.trans_section: Vertical = self.query_one("#lifecycle-transitions", Vertical)
+        self.trans_section.add_class("hidden") 
+        self.set_interval(0.3, self.update_display)
 
     def update_transition_buttons(self):
         for button in self.query(Button):
             if button.id and button.id.startswith("transition-button-"):
                 button.remove()
         for transition in self.get_available_transitions():
-            self.query_one("#lifecycle-transitions").mount(
+            self.query_one("#lifecycle-transition-buttons").mount(
                 Button(transition.transition.label, id=f"transition-button-{transition.transition.id}")
             )
 
     def update_display(self):
         node_listview = self.app.query_one("#node-listview")
+        if node_listview.selected_node_name is None:
+            return
+
         self.selected_node_data = node_listview.node_listview_dict["/"+node_listview.selected_node_name]
 
         if self.selected_node_data is None:
@@ -101,14 +112,12 @@ class LifecycleWidget(Container):
         self.current_node_full_name = self.selected_node_data.full_name
         if self.selected_node_data.full_name not in self.lifecycle_dict:
             self.create_lifecycle_data()
-        
+
+        self.trans_section.add_class("hidden")
         if not self.lifecycle_dict[self.selected_node_data.full_name].is_lifecycle:
-            transition_buttons = self.query_one("#lifecycle-transitions")
-            transition_buttons.display = False
             return self.info_log.write(f"[red]Node {self.selected_node_data.full_name} is not a lifecycle node.[/]")
         
-        transition_buttons = self.query_one("#lifecycle-transitions")
-        transition_buttons.display = True 
+        self.trans_section.remove_class("hidden")
         info_lines = self.get_lifecycle_state()
         self.info_log.write("\n".join(info_lines))
 
@@ -194,6 +203,8 @@ class LifecycleWidget(Container):
     def trigger_transition(self, transition_id: int):
         full_name = self.selected_node_data.full_name
 
+        self.transition_log.write(f"[yellow]Requesting transition {transition_id} for {full_name}...[/]")
+
         change_lifecycle_client = self.lifecycle_dict[full_name].change_lifecycle_client
         if not change_lifecycle_client.wait_for_service(timeout_sec=1.0):
             return f"[red]Lifecycle service for {full_name} is not available[/]"
@@ -201,8 +212,13 @@ class LifecycleWidget(Container):
         request = ChangeState.Request()
         request.transition.id = transition_id
         future = change_lifecycle_client.call_async(request)
+        self.transition_log.write(f"[yellow]Requesting transition {transition_id} for {full_name}...[/]")
+
         self.ros_node.executor.spin_until_future_complete(future, timeout_sec=5.0)
         if not future.done() or future.result() is None:
+            self.transition_log.write(f"[red]Failed to change lifecycle state for {full_name}[/]")
             return f"[red]Failed to change lifecycle state for {full_name}[/]"
         if not future.result().success:
-            return f"[red]Failed to change lifecycle state for {full_name}[/]"
+            self.transition_log.write(f"[red]Failed to change lifecycle state for {full_name}[/]")
+
+        self.transition_log.clear()
