@@ -6,12 +6,7 @@ from rclpy.node import Node
 from rclpy.executors import MultiThreadedExecutor
 
 def _spin(executor):
-   try:
-       executor.spin()
-   finally:
-       executor.shutdown()
-       if rclpy.ok():
-           rclpy.shutdown()
+    executor.spin()
 
 def start_ros_in_thread(ros_node):
     if not rclpy.ok():

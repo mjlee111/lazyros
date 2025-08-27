@@ -280,14 +280,13 @@ def main(args=None):
     from lazyros.utils.utility import start_ros_in_thread, stop_ros_thread
     rclpy.init(args=args)
     ros_node = Node("lazyros_monitor_node")
-    try:
-        executor, ros_thread = start_ros_in_thread(ros_node)
-        app = LazyRosApp(ros_node)
-        app.run()
-    except Exception as e:
-        print(f"Failed to start ROS node: {e}")
-    finally:
-        stop_ros_thread(executor, ros_thread, ros_node)
+    executor, ros_thread = start_ros_in_thread(ros_node)
+    app = LazyRosApp(ros_node)
+    app.run()
+    #except Exception as e:
+    #    print(f"Failed to start ROS node: {e}")
+    #finally:
+    #    stop_ros_thread(executor, ros_thread, ros_node)
 
 if __name__ == "__main__":
     main()
