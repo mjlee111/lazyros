@@ -24,7 +24,7 @@ class TopicInfoWidget(Container):
     def __init__(self, ros_node: Node, **kwargs) -> None:
         super().__init__(**kwargs)
         self.ros_node = ros_node
-        self.info_log = RichLog(wrap=True, highlight=True, markup=True, id="info-log", max_lines=1000)
+        self.rich_log = RichLog(wrap=True, highlight=True, markup=True, id="info-log", max_lines=1000)
         self.info_dict: dict[str, list[str]] = {}
         
         self.selected_topic = None
@@ -33,24 +33,24 @@ class TopicInfoWidget(Container):
         self.ros_node.create_timer(1, self.update_display, callback_group=ReentrantCallbackGroup())
 
     def compose(self) -> ComposeResult:
-        yield self.info_log
+        yield self.rich_log
 
     def update_display(self):
         self.topic_listview = self.app.query_one("#topic-listview")
         self.selected_topic = self.topic_listview.selected_topic if self.topic_listview else None
 
         if self.selected_topic is None:
-            self.info_log.clear()
-            self.info_log.write("[red]No node is selected yet.[/]")
+            self.rich_log.clear()
+            self.rich_log.write("[red]No node is selected yet.[/]")
             return
 
         if self.selected_topic == self.current_topic:
             return
         
         self.current_topic = self.selected_topic
-        self.info_log.clear()
+        self.rich_log.clear()
         info_lines = self.show_topic_info()
-        self.info_log.write("\n".join(info_lines))
+        self.rich_log.write("\n".join(info_lines))
 
     def show_topic_info(self) -> None:
         if self.selected_topic in self.info_dict:

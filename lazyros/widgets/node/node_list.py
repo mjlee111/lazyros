@@ -46,7 +46,6 @@ class NodeListWidget(Container):
         asyncio.create_task(self.update_node_list())
         self.set_interval(1, lambda: asyncio.create_task(self.update_node_list()))
 
-        self.listview.focus()
         if self.listview.children:
             self.listview.index = 0
 

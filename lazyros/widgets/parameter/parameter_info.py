@@ -40,7 +40,7 @@ class ParameterInfoWidget(Container):
         super().__init__(**kwargs)
 
         self.ros_node = ros_node
-        self.info_log = RichLog(wrap=True, highlight=True, markup=True, id="parameter-info-log", max_lines=1000)
+        self.rich_log = RichLog(wrap=True, highlight=True, markup=True, id="parameter-info-log", max_lines=1000)
         self.param_client_dict = {}
         self.listview_widget = None
 
@@ -50,24 +50,24 @@ class ParameterInfoWidget(Container):
         self.ros_node.create_timer(1, self.update_display, callback_group=ReentrantCallbackGroup())
 
     def compose(self) -> ComposeResult:
-        yield self.info_log
+        yield self.rich_log
 
     def update_display(self):
         self.listview_widget = self.app.query_one("#parameter-listview")
         self.selected_parameter = self.listview_widget.selected_param if self.listview_widget else None
 
         if not self.selected_parameter:
-            self.info_log.clear()
-            self.info_log.write("[red]No parameter is selected yet.[/]")
+            self.rich_log.clear()
+            self.rich_log.write("[red]No parameter is selected yet.[/]")
             return
 
         if self.selected_parameter == self.current_parameter:
             return
 
         self.current_parameter = self.selected_parameter
-        self.info_log.clear()
+        self.rich_log.clear()
         info_lines = self.show_param_info()
-        self.info_log.write("\n".join(info_lines))
+        self.rich_log.write("\n".join(info_lines))
 
     def show_param_info(self):
         match = re.fullmatch(r"([^:]+):\s*(.+)", self.current_parameter)
