@@ -58,38 +58,54 @@ class TopicListWidget(Container):
         self.topic_dict = {}
         self.selected_topic = None
 
+        self.search_input: Input | None = None
+        self.searching = False
+
     def compose(self) -> ComposeResult:
         yield self.listview
 
     def on_mount(self) -> None:
         asyncio.create_task(self.update_topic_list())
-        self.set_interval(1, lambda: asyncio.create_task(self.update_topic_list()))
+        self.set_interval(0.1, lambda: asyncio.create_task(self.update_topic_list()))
         if self.listview.children:
             self.listview.index = 0
 
     async def update_topic_list(self) -> None:
         """Fetch and update the list of topics."""
-    
-        topics = self.ros_node.get_topic_names_and_types()
-        need_update = False
 
-        for topic in topics:
-            if self.ignore_parser.should_ignore(topic[0], 'topic'):
-                continue
-            if topic[0] not in self.topic_dict:
+        if self.searching:
+            if self.screen.focused == self.app.query_one("#footer"):
+                self.listview.clear()
+                footer = self.app.query_one("#footer")
+                buf = footer._buf
+                topic_list = self.apply_filter(buf)
+                self.log(f"Filtered topics: {topic_list}")
+                self.listview.extend(topic_list)
+        else:
+            topics = self.ros_node.get_topic_names_and_types()
+            need_update = False
+
+            for topic in topics:
+                if self.ignore_parser.should_ignore(topic[0], 'topic'):
+                    continue
+                if topic[0] not in self.topic_dict:
+                    need_update = True
+                    self.topic_dict[topic[0]] = topic[1]
+
+            if len(self.listview.children) != len(self.topic_dict):
                 need_update = True
-                self.topic_dict[topic[0]] = topic[1]
 
-        if not need_update:
-            return
+            if not need_update:
+                return
 
-        self.listview.clear()
-        topic_list = []
-        for topic in list(self.topic_dict.keys()):
-            label = RichText.assemble(RichText(topic))
-            topic_list.append(ListItem(Label(label)))
-        
-        self.listview.extend(topic_list)
+            self.listview.clear()
+            topic_list = []
+
+            for topic in list(self.topic_dict.keys()):
+                label = RichText.assemble(RichText(topic))
+                topic_list.append(ListItem(Label(label)))
+
+            self.listview.extend(topic_list)
 
     def on_list_view_highlighted(self, event):
 
@@ -104,4 +120,16 @@ class TopicListWidget(Container):
 
         topic_name = str(item.children[0].renderable).strip()
         if self.selected_topic != topic_name:
-            self.selected_topic = topic_name 
+            self.selected_topic = topic_name
+
+    def apply_filter(self, query) -> None:
+        query = query.lower().strip()
+        if query:
+            names = [n for n in list(self.topic_dict.keys()) if query in n.lower()]
+        else:
+            names = list(self.topic_dict.keys())
+
+        filtered_topics = []
+        for n in names:
+            filtered_topics.append(ListItem(Label(RichText.assemble(RichText(n)))))
+        return filtered_topics
