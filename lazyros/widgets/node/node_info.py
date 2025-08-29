@@ -89,6 +89,9 @@ class InfoViewWidget(Container):
             
     def update_info(self):
         node_listview = self.app.query_one("#node-listview")
+        if node_listview.selected_node_name is None:
+            return
+
         self.selected_node_data = node_listview.node_listview_dict["/"+node_listview.selected_node_name]
 
         if self.selected_node_data is None:
