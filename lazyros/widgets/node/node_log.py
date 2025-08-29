@@ -65,8 +65,11 @@ class LogViewWidget(Container):
             qos_profile,
             callback_group=ReentrantCallbackGroup()
         )
-        self.ros_node.create_timer(0.5, self.display_logs, callback_group=ReentrantCallbackGroup())
+        #self.ros_node.create_timer(0.5, self.display_logs, callback_group=ReentrantCallbackGroup())
         self._log_buffer = -1000 # for log buffer
+
+    def on_mount(self):
+        self.set_interval(0.5, self.display_logs)
 
     def compose(self) -> ComposeResult:
         yield self.rich_log
