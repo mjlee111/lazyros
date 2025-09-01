@@ -12,27 +12,27 @@ class SearchFooter(Footer):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._search_mode = False
-        self._buf = ""
+        self.input = ""
         self.show_command_palette = False
         self.searching_id = None  # ID of the widget that initiated the search
 
     def compose(self):
         yield from super().compose()
         if self._search_mode:
-            yield Static(f"filter: {self._buf}", id="search-filter")
+            yield Static(f"filter: {self.input}", id="search-filter")
 
     def update_buf(self) -> None:
         filter_widget = self.query_one("#search-filter")
-        filter_widget.update(f"filter: {self._buf}")
+        filter_widget.update(f"filter: {self.input}")
 
     # API
     def enter_search(self) -> None:
         self._search_mode = True
-        self._buf = ""
+        self.input = ""
 
     def exit_search(self) -> None:
         self._search_mode = False
-        self._buf = ""
+        self.input = ""
 
     def on_key(self, event: Key) -> None:
         if not self._search_mode:
@@ -41,14 +41,14 @@ class SearchFooter(Footer):
         key = event.key
 
         if key == "backspace":
-            self._buf = self._buf[:-1]
+            self.input = self.input[:-1]
             self.update_buf()
         elif key in ("delete", "ctrl+u"):
-            self._buf = ""
+            self.input = ""
             self.update_buf()
         else:
             if len(key) == 1:
-                self._buf += key
+                self.input += key
                 self.update_buf()
             else:
                 return

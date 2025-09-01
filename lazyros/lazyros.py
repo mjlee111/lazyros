@@ -188,7 +188,6 @@ class LazyRosApp(App):
             widget_id = footer.searching_id
             widget = self.query_one(f'#{widget_id}')
             widget.searching = not escape_searching 
-            widget.listview.index = None
             widget.listview.focus()
 
         footer.refresh(layout=True)

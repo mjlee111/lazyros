@@ -30,21 +30,20 @@ class MyListView(ListView):
     def on_focus(self, event: Focus) -> None:
         if self.children and not self.index:
             self.index = 0
-            self.refresh(layout=True)
 
 class TopicListWidget(Container):
     """A widget to display the list of ROS topics."""
 
     DEFAULT_CSS = """
-    TopicListWidget {
-        overflow: hidden;
-    }
-
-    #scroll-area {
-        overflow-x: auto;
-        overflow-y: auto;
-        height: 1fr;
-    }
+        TopicListWidget {
+            overflow: hidden;
+        }
+    
+        #scroll-area {
+            overflow-x: auto;
+            overflow-y: auto;
+            height: 1fr;
+        }
     """
 
     def __init__(self, ros_node: Node, **kwargs):
@@ -58,7 +57,6 @@ class TopicListWidget(Container):
         self.topic_dict = {}
         self.selected_topic = None
 
-        self.search_input: Input | None = None
         self.searching = False
 
     def compose(self) -> ComposeResult:
@@ -73,13 +71,15 @@ class TopicListWidget(Container):
     async def update_topic_list(self) -> None:
         """Fetch and update the list of topics."""
 
+        if not self.listview.index and not self.searching:
+            self.listview.index = 0
+
         if self.searching:
             if self.screen.focused == self.app.query_one("#footer"):
                 self.listview.clear()
                 footer = self.app.query_one("#footer")
-                buf = footer._buf
-                topic_list = self.apply_filter(buf)
-                self.log(f"Filtered topics: {topic_list}")
+                query = footer.input
+                topic_list = self.apply_filter(query)
                 self.listview.extend(topic_list)
         else:
             topics = self.ros_node.get_topic_names_and_types()

@@ -32,7 +32,6 @@ class MyListView(ListView):
         self.log("focus")
         if self.children and not self.index:
             self.index = 0
-            self.refresh(layout=True)
 
 
 class ParameterListWidget(Container):
@@ -61,15 +60,16 @@ class ParameterListWidget(Container):
         self.selected_param = None
         self.node_listview = None
         self.parameter_dict = {}
+        self.list_for_search = []
 
-        #self.ros_node.create_timer(1, self.update_parameter_list, callback_group=ReentrantCallbackGroup())
+        self.searching = False
 
     def compose(self) -> ComposeResult:
         yield self.listview
 
     def on_mount(self) -> None:
         asyncio.create_task(self.update_parameter_list())
-        self.set_interval(3, lambda: asyncio.create_task(self.update_parameter_list()))
+        self.set_interval(0.1, lambda: asyncio.create_task(self.update_parameter_list()))
         if self.listview.children:
             self.listview.index = 0
 
@@ -86,40 +86,57 @@ class ParameterListWidget(Container):
         return result.names
 
     async def update_parameter_list(self):
-        self.node_listview = self.app.query_one("#node-listview")
-        
-        need_update = False 
-        node_list = list(self.node_listview.node_listview_dict.keys())
-        for node in node_list:
-            if node not in self.parameter_dict:
+        if not self.listview.index and not self.searching:
+            self.listview.index = 0
+
+        if self.searching:
+            if self.screen.focused == self.app.query_one("#footer"):
+                self.listview.clear()
+                footer = self.app.query_one("#footer")
+                query = footer.input
+                param_list = self.apply_search_filter(query)
+                self.listview.extend(param_list)
+
+        else:
+            self.node_listview = self.app.query_one("#node-listview")
+
+            need_update = False 
+            node_list = list(self.node_listview.node_listview_dict.keys())
+            for node in node_list:
+                if node not in self.parameter_dict:
+                    need_update = True
+                    parameters = self.list_parameters(node)
+                    if parameters:
+                        self.parameter_dict[node] = parameters
+
+                #elif self.node_listview.node_listview_dict[node].status != "green":
+                #    self.parameter_dict.pop(node)
+                #    need_update = True 
+
+            if len(self.listview.children) != len(self.list_for_search):
                 need_update = True
-                parameters = self.list_parameters(node)
-                if parameters:
-                    self.parameter_dict[node] = parameters
 
-            #elif self.node_listview.node_listview_dict[node].status != "green":
-            #    self.parameter_dict.pop(node)
-            #    need_update = True            
+            if not need_update:
+                return
 
-        if not need_update:
-            return
+            # update parameter listview
+            self.listview.clear()
+            parameter_list = []
+            self.list_for_search = []
+            node_list = list(self.parameter_dict.keys())
+            for node in node_list:
+                for parameter in self.parameter_dict[node]:
+                    label = RichText.assemble(
+                        RichText(node),
+                        ": ",
+                        RichText(parameter)
+                    )
+                    should_ignore = self.ignore_parser.should_ignore(str(label), 'parameter')
+                    if not should_ignore:
+                        parameter_list.append(ListItem(Label(label)))
+                        self.list_for_search.append(f"{node}: {parameter}")
 
-        # update parameter listview
-        self.listview.clear()
-        parameter_list = []
-        node_list = list(self.parameter_dict.keys())
-        for node in node_list:
-            for parameter in self.parameter_dict[node]:
-                label = RichText.assemble(
-                    RichText(node),
-                    ": ",
-                    RichText(parameter)
-                )
-                should_ignore = self.ignore_parser.should_ignore(str(label), 'parameter')
-                if not should_ignore:
-                    parameter_list.append(ListItem(Label(label)))
-
-        self.listview.extend(parameter_list)
+            self.listview.extend(parameter_list)
 
     def on_list_view_highlighted(self, event):
 
@@ -135,3 +152,15 @@ class ParameterListWidget(Container):
         param_name = str(item.children[0].renderable).strip()
         if self.selected_param != param_name:
             self.selected_param = param_name
+
+    def apply_search_filter(self, query) -> None:
+        query = query.lower().strip()
+        if query:
+            names = [n for n in self.list_for_search if query in n.lower()]
+        else:
+            names = self.list_for_search 
+
+        filtered_parameters = []
+        for n in names:
+            filtered_parameters.append(ListItem(Label(RichText.assemble(RichText(n)))))
+        return filtered_parameters
