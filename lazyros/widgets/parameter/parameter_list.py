@@ -20,6 +20,8 @@ from rclpy.callback_groups import ReentrantCallbackGroup
 from rich.text import Text as RichText
 from textual.events import Focus
 
+from textual.events import Key
+
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
     return escape(text)
@@ -32,6 +34,28 @@ class MyListView(ListView):
         if self.children and not self.index:
             self.index = 0
 
+    def on_key(self, event: Key) -> None:
+        if event.key in ("up", "down"):
+            items = [i for i in self.children if i.display] 
+            if not items:
+                return
+
+            current = self.index or 0
+            # index が非表示を指していた場合は0にリセット
+            if not self.children[current].display:
+                self.index = self.children.index(items[0])
+                return
+
+            if event.key == "down":
+                visible_next = next((i for i in items if self.children.index(i) > current), None)
+                if visible_next:
+                    self.index = self.children.index(visible_next)
+            elif event.key == "up":
+                visible_prev = next((i for i in reversed(items) if self.children.index(i) < current), None)
+                if visible_prev:
+                    self.index = self.children.index(visible_prev)
+
+            event.stop()
 
 class ParameterListWidget(Container):
     """A widget to display the list of ROS parameters."""
@@ -87,27 +111,55 @@ class ParameterListWidget(Container):
         if not self.listview.index and not self.searching:
             self.listview.index = 0
 
+        #if self.searching:
+        #    if self.screen.focused == self.app.query_one("#footer"):
+        #        self.listview.clear()
+        #        footer = self.app.query_one("#footer")
+        #        query = footer.input
+        #        param_list = self.apply_search_filter(query)
+        #        self.listview.extend(param_list)
+
         if self.searching:
             if self.screen.focused == self.app.query_one("#footer"):
-                self.listview.clear()
                 footer = self.app.query_one("#footer")
                 query = footer.input
+
                 param_list = self.apply_search_filter(query)
-                self.listview.extend(param_list)
+                visible = set(param_list)
+                hidden = set(self.list_for_search) - visible
+
+                searching_index = len(self.list_for_search) + 1
+                for n in visible:
+                    item = self.listview.query(f"#{n.lstrip('/').replace('/', '-')}").first()
+                    if item:
+                        item.display=True
+
+                    index = self.listview.children.index(item) if item else None
+                    if index is not None and index < searching_index:
+                        searching_index = index
+
+                self.listview.index = searching_index
+
+                for n in hidden:
+                    item = self.listview.query(f"#{n.lstrip('/').replace('/', '-')}").first()
+                    if item:
+                        item.display=False
+
 
         else:
             self.node_listview = self.app.query_one("#node-listview")
 
             node_list = list(self.node_listview.node_listview_dict.keys())
             for node in node_list:
-                if node not in self.parameter_dict:
+                node_status = self.node_listview.node_listview_dict[node].status
+
+                if node_status == "green" and node not in self.parameter_dict:
                     parameters = self.list_parameters(node)
                     if not parameters:
                         return
-                    
-                    self.parameter_dict[node] = parameters
-                    for parameter in parameters:
 
+                    self.parameter_dict[node] = []
+                    for parameter in parameters:
                         label = RichText.assemble(
                             RichText(node),
                             ": ",
@@ -117,20 +169,29 @@ class ParameterListWidget(Container):
                         if not should_ignore:
                             css_id = f"{node}-{parameter}".lstrip("/").replace("/", "-")
                             self.listview.extend([ListItem(Label(label), id=css_id)])
+                            self.list_for_search.append(f"{node}-{parameter}")
+                            self.parameter_dict[node].append(parameter)
 
-                #elif self.node_listview.node_listview_dict[node].status != "green":
-                #    for parameter in self.parameter_dict[node]:
-                #        css_id = f"{node}-{parameter}".lstrip("/").replace("/", "-")
-                #        match = self.listview.query(f"#{css_id}")
-                #        if match:
-                #            match.remove()
-#
-                #    self.parameter_dict.pop(node)
+                elif node in self.parameter_dict and node_status != "green":
+                    for parameter in self.parameter_dict[node]:
+                        css_id = f"{node}-{parameter}".lstrip("/").replace("/", "-")
+                        match = self.listview.query(f"#{css_id}")
+                        if match:
+                            match.remove()
+                            self.list_for_search.remove(f"{node}-{parameter}")
+
+                    self.parameter_dict.pop(node)
+
+                elif node_status == 'green' and node in self.parameter_dict:
+                    for parameter in self.parameter_dict[node]:
+                        css_id = f"{node}-{parameter}".lstrip("/").replace("/", "-")
+                        match = self.listview.query(f"#{css_id}").first()
+                        if match:
+                            match.display = True
 
                 if self.listview.index and self.listview.index >= len(self.listview.children):
+                    # 最後を超えていたら末尾に移動
                     self.listview.index = max(0, len(self.listview.children) - 1)
-        
-                self.listview.refresh(layout=True)
 
             #if len(self.listview.children) != len(self.list_for_search):
             #    need_update = True
@@ -177,9 +238,5 @@ class ParameterListWidget(Container):
         if query:
             names = [n for n in self.list_for_search if query in n.lower()]
         else:
-            names = self.list_for_search 
-
-        filtered_parameters = []
-        for n in names:
-            filtered_parameters.append(ListItem(Label(RichText.assemble(RichText(n)))))
-        return filtered_parameters
+            names = self.list_for_search
+        return names

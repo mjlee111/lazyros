@@ -149,6 +149,10 @@ class TopicListWidget(Container):
                    match.remove() 
                 self.topic_dict.pop(topic, None)
 
+            if self.listview.index and self.listview.index >= len(self.listview.children):
+                # 最後を超えていたら末尾に移動
+                self.listview.index = max(0, len(self.listview.children) - 1)
+
     def on_list_view_highlighted(self, event):
 
         index = self.listview.index
