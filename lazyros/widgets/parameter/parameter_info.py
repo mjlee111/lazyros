@@ -31,9 +31,9 @@ class ParameterInfoWidget(Container):
     """Widget for displaying ROS parameter information."""
 
     DEFAULT_CSS = """
-    ParameterInfoWidget {
-        overflow-y: scroll;
-    }
+        ParameterInfoWidget {
+            overflow-y: scroll;
+        }
     """
 
     def __init__(self, ros_node: Node, **kwargs) -> None:

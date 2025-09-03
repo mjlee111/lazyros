@@ -81,40 +81,9 @@ class NodeListWidget(Container):
 
     def on_mount(self) -> None:
         self.set_interval(0.1, self.update_node_list)
-        #self.set_interval(0.1, self.update_searching_node_list)
 
         if self.listview.children:
             self.listview.index = 0
-
-    async def update_searching_node_list(self):
-        if not self.searching:
-            return
-
-        self.listview.remove()
-        self.mount(self.searching_listview)
-
-        if self.screen.focused == self.app.query_one("#footer"):
-            footer = self.app.query_one("#footer")
-            query = footer.input
-            all_nodes =list(self.node_listview_dict.keys())
-            node_list = self.apply_search_filter(query)
-
-            visible = set(node_list)
-            hidden = set(self.node_listview_dict.keys()) - visible
-
-            self.searching_listview.clear()
-            nodes = []
-            index = 0
-            for node in visible:
-                status = self.node_listview_dict[node].status
-                label = RichText.assemble(
-                   RichText("●", style=f"bold {status}"),
-                   "    ",
-                   RichText(node)
-                )
-                nodes.append(ListItem(Label(label)))
-                index += 1
-            self.searching_listview.extend(nodes)
 
     async def update_node_list(self) -> None:
         """Update the list of nodes."""
@@ -124,7 +93,6 @@ class NodeListWidget(Container):
 
         if self.searching:
             if self.screen.focused == self.app.query_one("#footer"):
-                #self.listview.clear()
                 footer = self.app.query_one("#footer")
                 query = footer.input
 
@@ -132,10 +100,16 @@ class NodeListWidget(Container):
                 visible = set(node_list)
                 hidden = set(self.node_listview_dict.keys()) - visible
 
+                searching_index = len(self.node_listview_dict.keys()) + 1
                 for n in visible:
                     index = self.node_listview_dict[n].index
                     item = self.listview.children[index]
                     item.display=True
+
+                    if index < searching_index:
+                        searching_index = index
+
+                self.listview.index = searching_index
 
                 for n in hidden:
                     index = self.node_listview_dict[n].index
@@ -144,7 +118,6 @@ class NodeListWidget(Container):
         else:
             nodes_and_namespaces = self.ros_node.get_node_names_and_namespaces()
             launched_node_set =list(self.node_listview_dict.keys())
-            need_update = False
 
             for tuple in nodes_and_namespaces:
                 node = tuple[0]
@@ -183,30 +156,6 @@ class NodeListWidget(Container):
                     label = item.query_one(Label)
                     label.update(RichText.assemble(RichText("●", style="bold red"), "    ", RichText(dead_node)))
 
-            #if len(self.listview.children) != len(self.node_listview_dict.keys()):
-            #    need_update = True
-#
-            #if not need_update:
-            #    return
-            #        
-            #nodes_list = list(self.node_listview_dict.keys())
-            #sorted_nodes = sorted(nodes_list)
-            #  
-            ## update node listview 
-            #self.listview.clear()
-            #nodes = []
-            #index = 0
-            #for node in sorted_nodes:
-            #    status = self.node_listview_dict[node].status
-            #    label = RichText.assemble(
-            #       RichText("●", style=f"bold {status}"),
-            #       "    ",
-            #       RichText(node)
-            #    )
-            #    nodes.append(ListItem(Label(label)))
-            #    index += 1
-            #self.listview.extend(nodes)
-
     def on_list_view_highlighted(self, event):
         index = self.listview.index
         if index is None or not (0 <= index < len(self.listview.children)):
@@ -231,5 +180,4 @@ class NodeListWidget(Container):
             names = [n for n in list(self.node_listview_dict.keys()) if query in n.lower()]
         else:
             names = list(self.node_listview_dict.keys())
-
         return names

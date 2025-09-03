@@ -31,6 +31,29 @@ class MyListView(ListView):
         if self.children and not self.index:
             self.index = 0
 
+    def on_key(self, event: Key) -> None:
+        if event.key in ("up", "down"):
+            items = [i for i in self.children if i.display] 
+            if not items:
+                return
+
+            current = self.index or 0
+            # index が非表示を指していた場合は0にリセット
+            if not self.children[current].display:
+                self.index = self.children.index(items[0])
+                return
+
+            if event.key == "down":
+                visible_next = next((i for i in items if self.children.index(i) > current), None)
+                if visible_next:
+                    self.index = self.children.index(visible_next)
+            elif event.key == "up":
+                visible_prev = next((i for i in reversed(items) if self.children.index(i) < current), None)
+                if visible_prev:
+                    self.index = self.children.index(visible_prev)
+
+            event.stop()
+
 class TopicListWidget(Container):
     """A widget to display the list of ROS topics."""
 
@@ -75,14 +98,35 @@ class TopicListWidget(Container):
 
         if self.searching:
             if self.screen.focused == self.app.query_one("#footer"):
-                self.listview.clear()
                 footer = self.app.query_one("#footer")
                 query = footer.input
-                topic_list = self.apply_filter(query)
-                self.listview.extend(topic_list)
+
+                topic_list = self.apply_search_filter(query)
+                visible = set(topic_list)
+                hidden = set(self.topic_dict.keys()) - visible
+
+                searching_index = len(self.topic_dict.keys()) + 1
+                for n in visible:
+                    item = self.listview.query(f"#{n.lstrip('/').replace('/', '-')}").first()
+                    if item:
+                        item.display=True
+
+                    index = self.listview.children.index(item) if item else None
+                    if index is not None and index < searching_index:
+                        searching_index = index
+
+                self.listview.index = searching_index
+
+                for n in hidden:
+                    item = self.listview.query(f"#{n.lstrip('/').replace('/', '-')}").first()
+                    if item:
+                        item.display=False
+
         else:
             topics = self.ros_node.get_topic_names_and_types()
             need_update = False
+
+            listview_topics = set(self.topic_dict.keys())
 
             for topic in topics:
                 if self.ignore_parser.should_ignore(topic[0], 'topic'):
@@ -90,21 +134,20 @@ class TopicListWidget(Container):
                 if topic[0] not in self.topic_dict:
                     need_update = True
                     self.topic_dict[topic[0]] = topic[1]
+                    css_id = topic[0].lstrip("/").replace("/", "-")
+                    self.listview.extend([ListItem(Label(RichText.assemble(RichText(topic[0]))), id=css_id)])
+                else:
+                    item = self.listview.query(f"#{topic[0].lstrip('/').replace('/', '-')}").first()
+                    if item:
+                        item.display = True
+                    listview_topics.remove(topic[0])
 
-            if len(self.listview.children) != len(self.topic_dict):
-                need_update = True
-
-            if not need_update:
-                return
-
-            self.listview.clear()
-            topic_list = []
-
-            for topic in list(self.topic_dict.keys()):
-                label = RichText.assemble(RichText(topic))
-                topic_list.append(ListItem(Label(label)))
-
-            self.listview.extend(topic_list)
+            for topic in listview_topics:
+                css_id = topic.lstrip("/").replace("/", "-")
+                match = self.listview.query(f"#{css_id}")
+                if match:
+                   match.remove() 
+                self.topic_dict.pop(topic, None)
 
     def on_list_view_highlighted(self, event):
 
@@ -121,14 +164,11 @@ class TopicListWidget(Container):
         if self.selected_topic != topic_name:
             self.selected_topic = topic_name
 
-    def apply_filter(self, query) -> None:
+    def apply_search_filter(self, query) -> None:
         query = query.lower().strip()
         if query:
             names = [n for n in list(self.topic_dict.keys()) if query in n.lower()]
         else:
             names = list(self.topic_dict.keys())
 
-        filtered_topics = []
-        for n in names:
-            filtered_topics.append(ListItem(Label(RichText.assemble(RichText(n)))))
-        return filtered_topics
+        return names
