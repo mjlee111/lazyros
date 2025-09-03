@@ -68,8 +68,7 @@ class ParameterListWidget(Container):
         yield self.listview
 
     def on_mount(self) -> None:
-        asyncio.create_task(self.update_parameter_list())
-        self.set_interval(0.1, lambda: asyncio.create_task(self.update_parameter_list()))
+        self.set_interval(0.1, self.update_parameter_list)
         if self.listview.children:
             self.listview.index = 0
 

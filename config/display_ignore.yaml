@@ -1,4 +1,5 @@
 node:
+  /lazyros*
   /_ros2cli*
   /launch_ros*
   /move_group*
@@ -10,7 +11,7 @@ node:
 topic:
   # Add topic patterns here if needed
 parameter:
-  /lazyros_monitor_node*
+  /lazyros*
   /launch_ros*
   /rosbridge*
   /robot_state_publisher*
