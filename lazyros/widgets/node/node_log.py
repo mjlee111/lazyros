@@ -7,6 +7,7 @@ from rich.markup import escape
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.qos import QoSProfile
 import re    
+import rclpy
 from textual.binding import Binding
 from textual.events import Focus
 
@@ -57,7 +58,9 @@ class LogViewWidget(Container):
         self.logs_by_node: dict[str, list[str]] = {}
         self.current_node = None
         self.selected_node = None
-        qos_profile = QoSProfile(depth=10)
+        qos_profile = QoSProfile(depth=10,
+                                 reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
+                                 durability=rclpy.qos.DurabilityPolicy.VOLATILE)
         self.ros_node.create_subscription(
             Log,
             '/rosout',
@@ -65,8 +68,11 @@ class LogViewWidget(Container):
             qos_profile,
             callback_group=ReentrantCallbackGroup()
         )
-        self.ros_node.create_timer(0.5, self.display_logs, callback_group=ReentrantCallbackGroup())
+        #self.ros_node.create_timer(0.5, self.display_logs, callback_group=ReentrantCallbackGroup())
         self._log_buffer = -1000 # for log buffer
+
+    def on_mount(self):
+        self.set_interval(0.5, self.display_logs)
 
     def compose(self) -> ComposeResult:
         yield self.rich_log

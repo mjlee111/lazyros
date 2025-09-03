@@ -30,10 +30,14 @@ class TopicInfoWidget(Container):
         self.selected_topic = None
         self.current_topic = None
 
-        self.ros_node.create_timer(1, self.update_display, callback_group=ReentrantCallbackGroup())
+        #self.ros_node.create_timer(1, self.update_display, callback_group=ReentrantCallbackGroup())
 
     def compose(self) -> ComposeResult:
         yield self.rich_log
+
+
+    def on_mount(self):
+        self.set_interval(1, self.update_display)
 
     def update_display(self):
         self.topic_listview = self.app.query_one("#topic-listview")

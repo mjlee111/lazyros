@@ -1,7 +1,4 @@
-import subprocess
-import threading
-import time
-
+import rclpy
 from rclpy.node import Node
 from textual.app import ComposeResult
 from textual.containers import Container
@@ -68,6 +65,9 @@ class EchoViewWidget(Container):
     def compose(self) -> ComposeResult:
         yield self.rich_log
 
+    def on_mount(self):
+        self.set_interval(1, self.update_display)
+
     def update_display(self):
         self.topic_listview = self.app.query_one("#topic-listview")
         self.selected_topic = self.topic_listview.selected_topic if self.topic_listview else None
@@ -104,7 +104,10 @@ class EchoViewWidget(Container):
             self.rich_log.write(f"[red]Failed to get message type for {escape_markup(self.current_topic)}: {escape_markup(str(e))}[/]")
             return 
 
-        self._sub = self.ros_node.create_subscription(msg_type, self.current_topic, self.echo_callback, qos_profile=QoSProfile(depth=1), callback_group=ReentrantCallbackGroup())
+        qos_profile = QoSProfile(depth=10,
+                                 reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
+                                 durability=rclpy.qos.DurabilityPolicy.VOLATILE)
+        self._sub = self.ros_node.create_subscription(msg_type, self.current_topic, self.echo_callback, qos_profile=qos_profile, callback_group=ReentrantCallbackGroup())
 
     def echo_callback(self, msg):
         message = f"[dim]Message from {escape_markup(self.current_topic)}: [/dim] {escape_markup(str(msg))}"

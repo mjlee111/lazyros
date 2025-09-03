@@ -11,6 +11,7 @@ from textual.widgets import (
     Static,
     TabbedContent,
     TabPane,
+    ListView,
 )
 
 from lazyros.widgets.node.node_list import NodeListWidget
@@ -27,6 +28,8 @@ from lazyros.widgets.parameter.parameter_value import ParameterValueWidget
 from lazyros.widgets.parameter.parameter_info import ParameterInfoWidget
 
 from textual.screen import ModalScreen
+from lazyros.search import SearchFooter
+from textual.events import Action
 
 
 class HelpModal(ModalScreen):
@@ -65,14 +68,10 @@ class LazyRosApp(App):
     """A Textual app to monitor ROS information."""
 
     BINDINGS = [
-        Binding("q", "quit", "Quit", show=True),
+        Binding("q", "quit", "Quit", show=True, priority=True),
         Binding("?", "help", "Help", show=True),
-        Binding("tab", "focus_next_pane", "Next Pane", show=False),
-        Binding("shift+tab", "focus_previous_pane", "Previous Pane", show=False),
-        Binding("[", "previous_tab", "Previous Tab", show=False),
-        Binding("]", "next_tab", "Next Tab", show=False),
-        Binding("enter", "focus_right_pane", "Focus Right Pane", show=False),
-    ] 
+        Binding("/", "search", "Search", show=False)
+    ]
 
     CSS_PATH = "lazyros.css"
     
@@ -112,20 +111,29 @@ class LazyRosApp(App):
     def on_key(self, event) -> None:
         """Handle key events, override default tab behavior."""
 
+        if event.key == "tab" and self.screen.focused == self.query_one(SearchFooter):
+            self.deactive_search()
+
         if event.key == "tab":
             self.action_focus_next_listview()
             event.stop()
         elif event.key == "shift+tab":
             self.action_focus_previous_listview()
             event.stop()
-        elif event.key == "enter" and self.focused_pane == "left":
-            self.action_focus_right_pane()
+        elif event.key == "enter":
+            if self.screen.focused == self.query_one(SearchFooter):
+                self.deactive_search(restore_focus=True, escape_searching=False)
+            else:
+                self.action_focus_right_pane()
             event.stop()
-        elif event.key == "[":
+        elif event.character == "[":
             self.action_previous_tab()
             event.stop()
-        elif event.key == "]":
+        elif event.character == "]":
             self.action_next_tab()
+            event.stop()
+        elif event.key == "escape":
+            self.deactive_search(restore_focus=True)
             event.stop()
 
     def compose(self) -> ComposeResult:
@@ -165,9 +173,43 @@ class LazyRosApp(App):
                     with TabPane("Info", id="info"):
                         yield ParameterInfoWidget(self.ros_node, id="parameter-info-view-content")
 
-        yield Footer()
+        yield SearchFooter(id="footer")
 
     # keybindings for actions
+
+
+    def deactive_search(self, restore_focus=False, escape_searching=True) -> None:
+        footer = self.query_one(SearchFooter)
+        if escape_searching:
+            footer.exit_search()
+            self.screen.focus(None)
+
+        if restore_focus:
+            widget_id = footer.searching_id
+            widget = self.query_one(f'#{widget_id}')
+            widget.searching = not escape_searching 
+            widget.listview.focus()
+
+        footer.refresh(layout=True)
+        self.refresh(layout=True)
+
+    def action_search(self) -> None:
+        footer = self.query_one(SearchFooter)
+        focused = self.screen.focused
+        #if type(focused) != ListView:
+        #    self.log(f"Focused widget is not a ListView: {type(focused)}")
+        #    return
+
+        widget_id = f"{self._left_containers[self.current_pane_index]}-listview"  
+        footer.searching_id = widget_id
+        widget = self.query_one(f'#{widget_id}')
+        widget.searching = True
+
+        footer.enter_search()
+        self.set_focus(footer)
+        footer.refresh(layout=True)
+        self.refresh(layout=True)
+
     def action_help(self):
         """Show the help modal."""
 
@@ -282,6 +324,7 @@ class LazyRosApp(App):
                 break
         self.query_one(f'#{current_listview}-{tabs.active}-view-content').rich_log.focus()
 
+
 def main(args=None):
     from lazyros.utils.utility import start_ros_in_thread, stop_ros_thread
     rclpy.init(args=args)
@@ -289,10 +332,6 @@ def main(args=None):
     executor, ros_thread = start_ros_in_thread(ros_node)
     app = LazyRosApp(ros_node)
     app.run()
-    #except Exception as e:
-    #    print(f"Failed to start ROS node: {e}")
-    #finally:
-    #    stop_ros_thread(executor, ros_thread, ros_node)
 
 if __name__ == "__main__":
     main()
