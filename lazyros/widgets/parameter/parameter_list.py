@@ -29,7 +29,6 @@ class MyListView(ListView):
     """Custom ListView that automatically focuses on mount."""
 
     def on_focus(self, event: Focus) -> None:
-        self.log("focus")
         if self.children and not self.index:
             self.index = 0
 
@@ -99,43 +98,64 @@ class ParameterListWidget(Container):
         else:
             self.node_listview = self.app.query_one("#node-listview")
 
-            need_update = False 
             node_list = list(self.node_listview.node_listview_dict.keys())
             for node in node_list:
                 if node not in self.parameter_dict:
-                    need_update = True
                     parameters = self.list_parameters(node)
-                    if parameters:
-                        self.parameter_dict[node] = parameters
+                    if not parameters:
+                        return
+                    
+                    self.parameter_dict[node] = parameters
+                    for parameter in parameters:
+
+                        label = RichText.assemble(
+                            RichText(node),
+                            ": ",
+                            RichText(parameter)
+                        )
+                        should_ignore = self.ignore_parser.should_ignore(str(label), 'parameter')
+                        if not should_ignore:
+                            css_id = f"{node}-{parameter}".lstrip("/").replace("/", "-")
+                            self.listview.extend([ListItem(Label(label), id=css_id)])
 
                 #elif self.node_listview.node_listview_dict[node].status != "green":
+                #    for parameter in self.parameter_dict[node]:
+                #        css_id = f"{node}-{parameter}".lstrip("/").replace("/", "-")
+                #        match = self.listview.query(f"#{css_id}")
+                #        if match:
+                #            match.remove()
+#
                 #    self.parameter_dict.pop(node)
-                #    need_update = True 
 
-            if len(self.listview.children) != len(self.list_for_search):
-                need_update = True
+                if self.listview.index and self.listview.index >= len(self.listview.children):
+                    self.listview.index = max(0, len(self.listview.children) - 1)
+        
+                self.listview.refresh(layout=True)
 
-            if not need_update:
-                return
-
-            # update parameter listview
-            self.listview.clear()
-            parameter_list = []
-            self.list_for_search = []
-            node_list = list(self.parameter_dict.keys())
-            for node in node_list:
-                for parameter in self.parameter_dict[node]:
-                    label = RichText.assemble(
-                        RichText(node),
-                        ": ",
-                        RichText(parameter)
-                    )
-                    should_ignore = self.ignore_parser.should_ignore(str(label), 'parameter')
-                    if not should_ignore:
-                        parameter_list.append(ListItem(Label(label)))
-                        self.list_for_search.append(f"{node}: {parameter}")
-
-            self.listview.extend(parameter_list)
+            #if len(self.listview.children) != len(self.list_for_search):
+            #    need_update = True
+#
+            #if not need_update:
+            #    return
+#
+            ## update parameter listview
+            #self.listview.clear()
+            #parameter_list = []
+            #self.list_for_search = []
+            #node_list = list(self.parameter_dict.keys())
+            #for node in node_list:
+            #    for parameter in self.parameter_dict[node]:
+            #        label = RichText.assemble(
+            #            RichText(node),
+            #            ": ",
+            #            RichText(parameter)
+            #        )
+            #        should_ignore = self.ignore_parser.should_ignore(str(label), 'parameter')
+            #        if not should_ignore:
+            #            parameter_list.append(ListItem(Label(label)))
+            #            self.list_for_search.append(f"{node}: {parameter}")
+#
+            #self.listview.extend(parameter_list)
 
     def on_list_view_highlighted(self, event):
 

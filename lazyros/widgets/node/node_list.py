@@ -154,7 +154,7 @@ class NodeListWidget(Container):
                     index = self.node_listview_dict[dead_node].index
                     item = self.listview.children[index]
                     label = item.query_one(Label)
-                    label.update(RichText.assemble(RichText("●", style="bold red"), "    ", RichText(dead_node)))
+                    label.update(RichText.assemble(RichText("●", style="red"), "    ", RichText(dead_node)))
 
     def on_list_view_highlighted(self, event):
         index = self.listview.index
