@@ -1,5 +1,3 @@
-/* Basic screen layout */
-/* Container for the two panes */
 Horizontal {
     height: 1fr;
 }
@@ -12,87 +10,52 @@ TabbedContent Tabs .-active {
     color: green;
 }
 
-/* Common frame styling */
-#left-frame, #right-frame {
-    width: 1fr; /* Share width equally initially */
-    padding: 0 1; /* Add padding inside frames */
-    /* Use vertical layout for title and content */
+#left-pane, #right-pane {
+    width: 1fr;
+    padding: 0 1;
 }
 
-/* Specific width for left frame */
-#left-frame {
-    width: 30%; /* 3 parts */
-
+#left-pane {
+    width: 30%;
 }
 
-/* Specific width for right frame */
-#right-frame {
-    width: 70%; /* 7 parts */
-    border: round white; /* Thin white border */
-    border-title-align: left; /* Align the title to the left */
+#right-pane {
+    width: 70%;
+    border: round white;
+    border-title-align: left;
 }
 
-/* Style for the frame titles */
-.frame-title {
-    text-align: center; /* Center text within the Static widget */
-    width: 100%; /* Take full width of the frame */
+#right-pane.-active{
+    border: round green;
 }
 
 #node-container,
 #topic-container,
 #parameter-container
 {
-    border: round $secondary; /* Thin border around each section */
-    border-title-align: left; /* Align the title to the left */
+    border: round white;
+    border-title-align: left;
 }
 
-
-/* Style for the content area within the frames */
-#node-listview, 
-#topic-listview
-#parameter-listview,
-#log-view-content
+#node-container.-active,
+#topic-container.-active,
+#parameter-container.-active 
 {
+    border: round green;
+}
+
+.list-view ListView, .view-content RichLog {
     border: none;
-    height: 1.2fr; /* Take remaining space in the frame */
-    overflow-y: auto; /* Allow scrolling if content overflows */
-}
-
-#node-listview ListView {
-    border: none;
-    background: transparent; /* Ensure no background color */
-}
-
-
-#topic-listview ListView {
-    border: none;
-    background: transparent; /* Ensure no background color */
-}
-
-#parameter-listview ListView {
-    border: none;
-    background: transparent; /* Ensure no background color */
-}
-
-/* Adjust label inside node list content */
-#node-listview Label {
-    margin-bottom: 0;
-}
-
-/* Style the RichLog within the log view */
-#log-view-content RichLog {
-    border: none; /* Ensure no extra borders */
+    height: 1.2fr;
+    overflow-y: auto;
     background: transparent;
 }
 
-/* Style for the containers around each list and its title */
 .list-container {
-    border:round white; /* Thin white border */
-    height: 1fr; /* Allow containers to share vertical space */
+    border:round white;
+    height: 1fr;
 }
 
-/* Hidden class for switching between tab configurations */
 .hidden {
     display: none;
 }
-
