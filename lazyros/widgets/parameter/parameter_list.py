@@ -111,14 +111,6 @@ class ParameterListWidget(Container):
         if not self.listview.index and not self.searching:
             self.listview.index = 0
 
-        #if self.searching:
-        #    if self.screen.focused == self.app.query_one("#footer"):
-        #        self.listview.clear()
-        #        footer = self.app.query_one("#footer")
-        #        query = footer.input
-        #        param_list = self.apply_search_filter(query)
-        #        self.listview.extend(param_list)
-
         if self.searching:
             if self.screen.focused == self.app.query_one("#footer"):
                 footer = self.app.query_one("#footer")
@@ -195,31 +187,6 @@ class ParameterListWidget(Container):
                 if self.listview.index and self.listview.index >= len(self.listview.children):
                     # 最後を超えていたら末尾に移動
                     self.listview.index = max(0, len(self.listview.children) - 1)
-
-            #if len(self.listview.children) != len(self.list_for_search):
-            #    need_update = True
-#
-            #if not need_update:
-            #    return
-#
-            ## update parameter listview
-            #self.listview.clear()
-            #parameter_list = []
-            #self.list_for_search = []
-            #node_list = list(self.parameter_dict.keys())
-            #for node in node_list:
-            #    for parameter in self.parameter_dict[node]:
-            #        label = RichText.assemble(
-            #            RichText(node),
-            #            ": ",
-            #            RichText(parameter)
-            #        )
-            #        should_ignore = self.ignore_parser.should_ignore(str(label), 'parameter')
-            #        if not should_ignore:
-            #            parameter_list.append(ListItem(Label(label)))
-            #            self.list_for_search.append(f"{node}: {parameter}")
-#
-            #self.listview.extend(parameter_list)
 
     def on_list_view_highlighted(self, event):
 

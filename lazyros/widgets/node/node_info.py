@@ -87,7 +87,7 @@ class InfoViewWidget(Container):
         self.info_dict[full_name] = info_lines
         return info_lines
             
-    def update_info(self):
+    async def update_info(self):
         node_listview = self.app.query_one("#node-listview")
         
         if not node_listview.selected_node_name:

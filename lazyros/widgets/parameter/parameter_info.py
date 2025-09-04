@@ -55,7 +55,8 @@ class ParameterInfoWidget(Container):
     def on_mount(self):
         self.set_interval(1, self.update_display)
 
-    def update_display(self):
+    async def update_display(self):
+        
         self.listview_widget = self.app.query_one("#parameter-listview")
         self.selected_parameter = self.listview_widget.selected_param if self.listview_widget else None
 
@@ -73,6 +74,7 @@ class ParameterInfoWidget(Container):
         self.rich_log.write("\n".join(info_lines))
 
     def show_param_info(self):
+        
         match = re.fullmatch(r"([^:]+):\s*(.+)", self.current_parameter)
         if not match:
             return [f"[red]Invalid parameter format: {escape_markup(self.current_parameter)}[/]"]

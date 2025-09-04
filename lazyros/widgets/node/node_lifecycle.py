@@ -88,7 +88,8 @@ class LifecycleWidget(Container):
                 Button(transition.transition.label, id=f"transition-button-{transition.transition.id}")
             )
 
-    def update_display(self):
+    async def update_display(self):
+        
         node_listview = self.app.query_one("#node-listview")
         if node_listview.selected_node_name is None:
             return
