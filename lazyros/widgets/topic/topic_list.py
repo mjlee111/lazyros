@@ -135,6 +135,7 @@ class TopicListWidget(Container):
                     need_update = True
                     self.topic_dict[topic[0]] = topic[1]
                     css_id = topic[0].lstrip("/").replace("/", "-")
+                    css_id = css_id.replace(".", "-")
                     self.listview.extend([ListItem(Label(RichText.assemble(RichText(topic[0]))), id=css_id)])
                 else:
                     item = self.listview.query(f"#{topic[0].lstrip('/').replace('/', '-')}").first()
@@ -144,6 +145,7 @@ class TopicListWidget(Container):
 
             for topic in listview_topics:
                 css_id = topic.lstrip("/").replace("/", "-")
+                css_id = css_id.lstrip("/").replace(".", "-")
                 match = self.listview.query(f"#{css_id}")
                 if match:
                    match.remove() 

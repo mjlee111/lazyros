@@ -168,6 +168,7 @@ class ParameterListWidget(Container):
                         should_ignore = self.ignore_parser.should_ignore(str(label), 'parameter')
                         if not should_ignore:
                             css_id = f"{node}-{parameter}".lstrip("/").replace("/", "-")
+                            css_id = css_id.replace(".", "-")
                             self.listview.extend([ListItem(Label(label), id=css_id)])
                             self.list_for_search.append(f"{node}-{parameter}")
                             self.parameter_dict[node].append(parameter)
@@ -175,6 +176,7 @@ class ParameterListWidget(Container):
                 elif node in self.parameter_dict and node_status != "green":
                     for parameter in self.parameter_dict[node]:
                         css_id = f"{node}-{parameter}".lstrip("/").replace("/", "-")
+                        css_id = css_id.replace(".", "-")
                         match = self.listview.query(f"#{css_id}")
                         if match:
                             match.remove()
@@ -185,6 +187,7 @@ class ParameterListWidget(Container):
                 elif node_status == 'green' and node in self.parameter_dict:
                     for parameter in self.parameter_dict[node]:
                         css_id = f"{node}-{parameter}".lstrip("/").replace("/", "-")
+                        css_id = css_id.replace(".", "-")
                         match = self.listview.query(f"#{css_id}").first()
                         if match:
                             match.display = True
