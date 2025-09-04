@@ -4,6 +4,14 @@ Horizontal {
     height: 1fr;
 }
 
+TabbedContent Tabs .underline--bar {
+    color: transparent;
+}
+
+TabbedContent Tabs .-active {
+    color: green;
+}
+
 /* Common frame styling */
 #left-frame, #right-frame {
     width: 1fr; /* Share width equally initially */
@@ -14,12 +22,14 @@ Horizontal {
 /* Specific width for left frame */
 #left-frame {
     width: 30%; /* 3 parts */
+
 }
 
 /* Specific width for right frame */
 #right-frame {
     width: 70%; /* 7 parts */
     border: round white; /* Thin white border */
+    border-title-align: left; /* Align the title to the left */
 }
 
 /* Style for the frame titles */
@@ -27,6 +37,15 @@ Horizontal {
     text-align: center; /* Center text within the Static widget */
     width: 100%; /* Take full width of the frame */
 }
+
+#node-container,
+#topic-container,
+#parameter-container
+{
+    border: round $secondary; /* Thin border around each section */
+    border-title-align: left; /* Align the title to the left */
+}
+
 
 /* Style for the content area within the frames */
 #node-listview, 

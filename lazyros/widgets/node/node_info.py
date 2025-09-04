@@ -6,6 +6,9 @@ from textual.app import ComposeResult
 from textual.containers import Container
 from textual.widgets import RichLog
 from rich.markup import escape
+from textual.widgets import Static 
+from rich.text import Text
+
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
@@ -30,10 +33,34 @@ class InfoViewWidget(Container):
         self.current_node_full_name = None
 
     def compose(self) -> ComposeResult:
-        yield self.rich_log
+        yield Static("", id="node-info")
         
     def on_mount(self) -> None:
-        self.set_interval(0.5, self.update_info)  # Update info every 0.5 seconds
+        self.set_interval(1, self.update_info)  # Update info every 0.5 seconds
+            
+    async def update_info(self):
+        node_listview = self.app.query_one("#node-listview")
+        
+        view = self.query_one("#node-info", Static)
+        if not node_listview.selected_node_name:
+            view.update("[red]No node is selected yet.[/]")
+            return
+        self.selected_node_data = node_listview.node_listview_dict["/"+node_listview.selected_node_name]
+
+        if self.selected_node_data is None:
+            view.update("[red]No node is selected yet.[/]")
+            return
+
+        if self.selected_node_data.status != "green":
+            view.update("[red]Selected node is shutdown.[/]")
+            return
+
+        if self.selected_node_data.full_name == self.current_node_full_name:
+            return
+        
+        self.current_node_full_name = self.selected_node_data.full_name
+        info_lines = self.show_node_info()
+        view.update(Text.from_markup("\n".join(info_lines)))
 
     def show_node_info(self) -> None:
         node_data = self.selected_node_data
@@ -86,28 +113,3 @@ class InfoViewWidget(Container):
         
         self.info_dict[full_name] = info_lines
         return info_lines
-            
-    async def update_info(self):
-        node_listview = self.app.query_one("#node-listview")
-        
-        if not node_listview.selected_node_name:
-           return
-        self.selected_node_data = node_listview.node_listview_dict["/"+node_listview.selected_node_name]
-
-        if self.selected_node_data is None:
-            self.rich_log.clear()
-            self.rich_log.write("[red]No node is selected yet.[/]")
-            return
-
-        if self.selected_node_data.status != "green":
-            self.rich_log.clear()
-            self.rich_log.write("[red]Selected node is shutdown.[/]")
-            return
-
-        if self.selected_node_data.full_name == self.current_node_full_name:
-            return
-        
-        self.current_node_full_name = self.selected_node_data.full_name
-        self.rich_log.clear()
-        info_lines = self.show_node_info()
-        self.rich_log.write("\n".join(info_lines))

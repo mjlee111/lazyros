@@ -103,6 +103,9 @@ class LazyRosApp(App):
 
     def on_mount(self) -> None:
         """Called when app is mounted. Perform async setup here."""
+        node_container = self.query_one(f'#node-container')
+        if node_container:
+            node_container.styles.border = ("round", "green") 
 
         node_list_widget = self.query_one("#node-listview")
         if node_list_widget:
@@ -144,17 +147,23 @@ class LazyRosApp(App):
         with Horizontal():
             with Container(classes="left-pane", id="left-frame"):
                 with Vertical():
-                    with ScrollableContainer(classes="list-container", id="node-container"):
-                        yield Static("Nodes", classes="frame-title")
+                    node_container = ScrollableContainer(classes="list-container", id="node-container")
+                    node_container.border_title = "Nodes"
+                    with node_container:
                         yield NodeListWidget(self.ros_node, id="node-listview")
-                    with ScrollableContainer(classes="list-container", id="topic-container"):
-                        yield Static("Topics", classes="frame-title")
+
+                    topic_container = ScrollableContainer(classes="list-container", id="topic-container")
+                    topic_container.border_title = "Topics"
+                    with topic_container:
                         yield TopicListWidget(self.ros_node, id="topic-listview")
-                    with ScrollableContainer(classes="list-container", id="parameter-container"):
-                        yield Static("Parameters", classes="frame-title")
+
+                    parameter_container = ScrollableContainer(classes="list-container", id="parameter-container")
+                    parameter_container.border_title = "Parameters"
+                    with parameter_container:
                         yield ParameterListWidget(self.ros_node, id="parameter-listview")
 
-            with Container(classes="right-pane", id="right-frame"):
+            container = Container(classes="right-pane", id="right-frame")
+            with container:
                 with TabbedContent("Log", "Lifecycle", "Info", id="node-tabs"):
                     with TabPane("Log", id="log"):
                         yield LogViewWidget(self.ros_node, id="node-log-view-content")
@@ -176,8 +185,6 @@ class LazyRosApp(App):
         yield SearchFooter(id="footer")
 
     # keybindings for actions
-
-
     def deactive_search(self, restore_focus=False, escape_searching=True) -> None:
         footer = self.query_one(SearchFooter)
         if escape_searching:
@@ -307,7 +314,7 @@ class LazyRosApp(App):
             if current_tab == i:
                 tabs.active = self.TAB_ID_DICT[current_listview][self.TAB_ID_DICT[current_listview].index(i) - 1]
                 break
-        self.query_one(f'#{current_listview}-{tabs.active}-view-content').rich_log.focus()
+        #self.query_one(f'#{current_listview}-{tabs.active}-view-content').rich_log.focus()
 
     def action_next_tab(self):
         """Focus the right pane tab based on the current configuration."""
@@ -322,7 +329,7 @@ class LazyRosApp(App):
             if current_tab == i:
                 tabs.active = self.TAB_ID_DICT[current_listview][self.TAB_ID_DICT[current_listview].index(i) + 1]
                 break
-        self.query_one(f'#{current_listview}-{tabs.active}-view-content').rich_log.focus()
+        #self.query_one(f'#{current_listview}-{tabs.active}-view-content').rich_log.focus()
 
 
 def main(args=None):

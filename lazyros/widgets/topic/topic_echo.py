@@ -102,7 +102,7 @@ class EchoViewWidget(Container):
             self.rich_log.write(f"[red]Failed to get message type for {escape_markup(self.current_topic)}: {escape_markup(str(e))}[/]")
             return 
 
-        qos_profile = QoSProfile(depth=10,
+        qos_profile = QoSProfile(depth=rclpy.qos.QoSHistoryPolicy.KEEP_LAST,
                                  reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
                                  durability=rclpy.qos.DurabilityPolicy.VOLATILE)
         self._sub = self.ros_node.create_subscription(msg_type, self.current_topic, self.echo_callback, qos_profile=qos_profile, callback_group=ReentrantCallbackGroup())

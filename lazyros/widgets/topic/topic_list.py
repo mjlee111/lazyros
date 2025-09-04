@@ -145,7 +145,7 @@ class TopicListWidget(Container):
 
             for topic in listview_topics:
                 css_id = topic.lstrip("/").replace("/", "-")
-                css_id = css_id.lstrip("/").replace(".", "-")
+                css_id = css_id.replace(".", "-")
                 match = self.listview.query(f"#{css_id}")
                 if match:
                    match.remove() 
