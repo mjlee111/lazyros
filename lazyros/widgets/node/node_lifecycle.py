@@ -80,12 +80,12 @@ class LifecycleWidget(Container):
         self.set_interval(0.3, self.update_display)
 
     def update_transition_buttons(self):
-        for button in self.query(Button):
-            if button.id and button.id.startswith("transition-button-"):
-                button.remove()
+        node_name = self.selected_node_data.full_name.lstrip('/')
+        for button in self.query("#lifecycle-transition-buttons > Button"):
+            button.remove()
         for transition in self.get_available_transitions():
             self.query_one("#lifecycle-transition-buttons").mount(
-                Button(transition.transition.label, id=f"transition-button-{transition.transition.id}")
+                Button(transition.transition.label, id=f"{node_name}-transition-button-{transition.transition.id}")
             )
 
     async def update_display(self):
@@ -104,6 +104,7 @@ class LifecycleWidget(Container):
         if self.selected_node_data.status != "green":
             self.rich_log.clear()
             self.rich_log.write("[red]Selected node is shutdown.[/]")
+            return
 
         # Node is the same, no need to update
         #if self.selected_node_data.full_name == self.current_node_full_name:
@@ -197,9 +198,8 @@ class LifecycleWidget(Container):
         return transitions
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
-        if event.button.id.startswith("transition-button-"):
-            transition_id = int(event.button.id.split("-")[-1])
-            self.trigger_transition(transition_id)
+        transition_id = int(event.button.id.split("-")[-1])
+        self.trigger_transition(transition_id)
 
     def trigger_transition(self, transition_id: int):
         full_name = self.selected_node_data.full_name

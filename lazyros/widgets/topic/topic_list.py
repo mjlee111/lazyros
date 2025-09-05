@@ -86,7 +86,7 @@ class TopicListWidget(Container):
         yield self.listview
 
     def on_mount(self) -> None:
-        self.set_interval(0.1, self.update_topic_list)
+        self.set_interval(1, self.update_topic_list)
         if self.listview.children:
             self.listview.index = 0
 

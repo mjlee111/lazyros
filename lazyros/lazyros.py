@@ -67,7 +67,9 @@ class LazyRosApp(App):
     BINDINGS = [
         Binding("q", "quit", "Quit", show=True, priority=True),
         Binding("?", "help", "Help", show=True),
-        Binding("/", "search", "Search", show=False)
+        Binding("/", "search", "Search", show=False),
+        Binding("tab", "focus_next_listview", "Focus Next ListView", show=False, priority=True),
+        Binding("shift+tab", "focus_previous_listview", "Focus Previous ListView", show=False, priority=True),
     ]
 
     CSS_PATH = "lazyros.css"
@@ -96,16 +98,16 @@ class LazyRosApp(App):
     def on_key(self, event) -> None:
         """Handle key events, override default tab behavior."""
 
-        if event.key == "tab" and self.screen.focused == self.query_one(SearchFooter):
-            self.deactive_search()
-
-        if event.key == "tab":
-            self.action_focus_next_listview()
-            event.stop()
-        elif event.key == "shift+tab":
-            self.action_focus_previous_listview()
-            event.stop()
-        elif event.key == "enter":
+        #if event.key == "tab" and self.screen.focused == self.query_one(SearchFooter):
+        #    self.deactive_search()
+#
+        #if event.key == "tab":
+        #    self.action_focus_next_listview()
+        #    event.stop()
+        #elif event.key == "shift+tab":
+        #    self.action_focus_previous_listview()
+        #    event.stop()
+        if event.key == "enter":
             if self.screen.focused == self.query_one(SearchFooter):
                 self.deactive_search(restore_focus=True, escape_searching=False)
             else:

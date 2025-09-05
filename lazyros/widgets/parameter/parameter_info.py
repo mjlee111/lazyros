@@ -11,6 +11,8 @@ from rcl_interfaces.srv import DescribeParameters
 from rcl_interfaces.msg import ParameterType
 from rclpy.callback_groups import ReentrantCallbackGroup
 from textual.widgets import Static
+import asyncio
+from rich.text import Text
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
@@ -69,8 +71,9 @@ class ParameterInfoWidget(Container):
             return
 
         self.current_parameter = self.selected_parameter
-        info_lines = self.show_param_info()
-        view.update("\n".join(info_lines))
+        info_lines = await asyncio.to_thread(self.show_param_info)
+        if info_lines:
+            view.update(Text.from_markup("\n".join(info_lines)))
 
     def show_param_info(self):
         

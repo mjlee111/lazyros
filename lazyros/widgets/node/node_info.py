@@ -8,6 +8,7 @@ from textual.widgets import RichLog
 from rich.markup import escape
 from textual.widgets import Static 
 from rich.text import Text
+import asyncio
 
 
 def escape_markup(text: str) -> str:
@@ -59,8 +60,10 @@ class InfoViewWidget(Container):
             return
         
         self.current_node_full_name = self.selected_node_data.full_name
-        info_lines = self.show_node_info()
-        view.update(Text.from_markup("\n".join(info_lines)))
+        info_lines = await asyncio.to_thread(self.show_node_info)
+        if info_lines:
+            view.update(Text.from_markup("\n".join(info_lines)))
+
 
     def show_node_info(self) -> None:
         node_data = self.selected_node_data

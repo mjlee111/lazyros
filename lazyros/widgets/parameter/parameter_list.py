@@ -91,7 +91,7 @@ class ParameterListWidget(Container):
         yield self.listview
 
     def on_mount(self) -> None:
-        self.set_interval(0.1, self.update_parameter_list)
+        self.set_interval(1, self.update_parameter_list)
         if self.listview.children:
             self.listview.index = 0
 
@@ -108,48 +108,38 @@ class ParameterListWidget(Container):
         return result.names
 
     async def update_parameter_list(self):
-        if not self.listview.index and not self.searching:
-            self.listview.index = 0
+        #if self.listview.index is None and not self.searching:
+        #     self.listview.index = 0
 
         if self.searching:
             if self.screen.focused == self.app.query_one("#footer"):
                 footer = self.app.query_one("#footer")
                 query = footer.input
-
                 param_list = self.apply_search_filter(query)
                 visible = set(param_list)
                 hidden = set(self.list_for_search) - visible
-
                 searching_index = len(self.list_for_search) + 1
                 for n in visible:
                     item = self.listview.query(f"#{n.lstrip('/').replace('/', '-')}").first()
                     if item:
                         item.display=True
-
                     index = self.listview.children.index(item) if item else None
                     if index is not None and index < searching_index:
                         searching_index = index
-
                 self.listview.index = searching_index
-
                 for n in hidden:
                     item = self.listview.query(f"#{n.lstrip('/').replace('/', '-')}").first()
                     if item:
                         item.display=False
-
-
         else:
             self.node_listview = self.app.query_one("#node-listview")
-
             node_list = list(self.node_listview.node_listview_dict.keys())
             for node in node_list:
                 node_status = self.node_listview.node_listview_dict[node].status
-
                 if node_status == "green" and node not in self.parameter_dict:
-                    parameters = self.list_parameters(node)
+                    parameters = await asyncio.to_thread(self.list_parameters, node)
                     if not parameters:
                         return
-
                     self.parameter_dict[node] = []
                     for parameter in parameters:
                         label = RichText.assemble(
@@ -164,7 +154,6 @@ class ParameterListWidget(Container):
                             self.listview.extend([ListItem(Label(label), id=css_id)])
                             self.list_for_search.append(f"{node}-{parameter}")
                             self.parameter_dict[node].append(parameter)
-
                 elif node in self.parameter_dict and node_status != "green":
                     for parameter in self.parameter_dict[node]:
                         css_id = f"{node}-{parameter}".lstrip("/").replace("/", "-")
@@ -173,9 +162,7 @@ class ParameterListWidget(Container):
                         if match:
                             match.remove()
                             self.list_for_search.remove(f"{node}-{parameter}")
-
                     self.parameter_dict.pop(node)
-
                 elif node_status == 'green' and node in self.parameter_dict:
                     for parameter in self.parameter_dict[node]:
                         css_id = f"{node}-{parameter}".lstrip("/").replace("/", "-")
@@ -183,7 +170,6 @@ class ParameterListWidget(Container):
                         match = self.listview.query(f"#{css_id}").first()
                         if match:
                             match.display = True
-
                 if self.listview.index and self.listview.index >= len(self.listview.children):
                     # 最後を超えていたら末尾に移動
                     self.listview.index = max(0, len(self.listview.children) - 1)

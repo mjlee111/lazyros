@@ -80,7 +80,7 @@ class NodeListWidget(Container):
         yield self.listview
 
     def on_mount(self) -> None:
-        self.set_interval(0.1, self.update_node_list)
+        self.set_interval(1, self.update_node_list)
 
         if self.listview.children:
             self.listview.index = 0

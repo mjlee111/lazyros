@@ -5,6 +5,8 @@ from textual.widgets import Static
 from rich.markup import escape
 from rich.text import Text
 from rclpy.action import graph  # 使ってなければ削除OK
+import asyncio
+from rich.text import Text
 
 def escape_markup(text: str) -> str:
     return escape(text)
@@ -30,10 +32,9 @@ class TopicInfoWidget(Container):
         yield Static("", id="topic-info")
 
     def on_mount(self):
-        self.set_interval(1, self.update_display)
+        self.set_interval(1, self.update_display)  # 1秒ごとに更新
 
     async def update_display(self):
-        # topic-listview が未マウントだと例外になるので try にして安全に
         try:
             self.topic_listview = self.app.query_one("#topic-listview")
             self.selected_topic = self.topic_listview.selected_topic
@@ -52,9 +53,11 @@ class TopicInfoWidget(Container):
             return
 
         self.current_topic = self.selected_topic
-        info_lines = self.show_topic_info()
-        # ここはマークアップを解釈させたいので from_markup
-        view.update(Text.from_markup("\n".join(info_lines)))
+
+        info_lines = await asyncio.to_thread(self.show_topic_info)
+
+        if info_lines:
+            view.update(Text.from_markup("\n".join(info_lines)))
 
     def show_topic_info(self) -> list[str] | None:
         if self.selected_topic in self.info_dict:
@@ -69,7 +72,6 @@ class TopicInfoWidget(Container):
         publisher_count = len(self.ros_node.get_publishers_info_by_topic(self.selected_topic))
         subscription_count = len(self.ros_node.get_subscriptions_info_by_topic(self.selected_topic))
 
-        # ★ 動的部分はすべて escape_markup を通す
         info_lines: list[str] = []
         info_lines.append(f"Topic: {escape_markup(self.selected_topic)}")
         info_lines.append(f"  Type: {escape_markup(', '.join(topic_types))}")
