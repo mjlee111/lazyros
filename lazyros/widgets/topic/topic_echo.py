@@ -1,44 +1,20 @@
+import time
 import rclpy
+from collections import deque
 from rclpy.node import Node
 from textual.app import ComposeResult
 from textual.containers import Container
-from textual.widgets import RichLog
 from rich.markup import escape
-from rich.text import Text as RichText
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rosidl_runtime_py.utilities import get_message
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.qos import QoSProfile
-from textual.binding import Binding
+from lazyros.utils.custom_widgets import CustomRichLog 
+
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
     return escape(text)
-
-
-class MyRichLog(RichLog):
-    BINDINGS = [
-        Binding("g,g", "go_top", "Top", show=False),     # gg -> 先頭へ
-        Binding("G", "go_bottom", "Bottom", show=False), # G  -> 末尾へ
-        Binding("j", "scroll_down", "Down", show=False), # 1行下
-        Binding("k", "scroll_up", "Up", show=False),     # 1行上
-    ]
-
-    def action_go_top(self) -> None:
-        super().action_scroll_home()
-        self.auto_scroll = False
-
-    def action_go_bottom(self) -> None:
-        super().action_scroll_end()
-        self.auto_scroll = True
-
-    def action_scroll_up(self) -> None:
-        super().action_scroll_up()
-        self.auto_scroll = False
-
-    def action_scroll_down(self) -> None:
-        super().action_scroll_down()
-        self.auto_scroll = False
 
 
 class EchoViewWidget(Container):
@@ -53,12 +29,14 @@ class EchoViewWidget(Container):
     def __init__(self, ros_node: Node, **kwargs) -> None:
         super().__init__(**kwargs)
         self.ros_node = ros_node
-        self.rich_log = MyRichLog(wrap=True, highlight=True, markup=True, id="echo-log", max_lines=1000)
         self.current_topic = None
 
         self.topic_listview = None
         self.echo_dict = None
         self._sub = None
+        self._buffer = []
+        self.rich_log = CustomRichLog(wrap=True, highlight=True, markup=True, id="echo-log", max_lines=1000)
+        self._prev_echo_time = time.time()
 
     def compose(self) -> ComposeResult:
         yield self.rich_log
@@ -71,42 +49,81 @@ class EchoViewWidget(Container):
         self.selected_topic = self.topic_listview.selected_topic if self.topic_listview else None
 
         if self.selected_topic is None:
-            self.rich_log.clear()
+            self._clear_log()
             self.rich_log.write("[red]No topic is selected yet.[/]")
             return
 
         if self.selected_topic == self.current_topic:
+            if len(self._buffer) > 0:
+                self.rich_log.write("\n".join(self._buffer))
+                self._clear_buffer()
+                self._prev_echo_time = time.time()
+            else:
+                if time.time() - self._prev_echo_time> 5.0:
+                    self.rich_log.write(f"[yellow]No messages on this topic yet. (checks every 5 sec)[/yellow]")
+                    self._prev_echo_time = time.time()
             return
 
         self.current_topic = self.selected_topic
+
         self.rich_log.clear()
-        self.start_echo()
+        self._clear_buffer()
+        self._prev_echo_time = time.time()
 
-    def start_echo(self):
+        self._switch_topic_and_subscribe()
+
+
+    def _clear_buffer(self) -> None:
+        self._buffer = []
+
+    def _clear_log(self) -> None:
+        self._buffer = []
+        self.rich_log.clear()
+
+    def _switch_topic_and_subscribe(self) -> None:
         if self._sub is not None:
-            self.ros_node.destroy_subscription(self._sub)
+            try:
+                self.ros_node.destroy_subscription(self._sub)
+            except Exception:
+                pass
+            self._sub = None
 
-        topic_dict = self.topic_listview.topic_dict if self.topic_listview else None
-        if not topic_dict:
-            return [f"[red]Topic {escape_markup(self.current_topic)} is not set.[/]"]
+        topic_dict = self.topic_listview.topic_dict if self.topic_listview else {}
+        type_list = topic_dict.get(self.current_topic, None)
+        if not type_list:
+            self.rich_log.write(f"[red]Topic {escape_markup(self.current_topic)} is not valid.[/]")
+            return
 
-
-        topic_type = topic_dict.get(self.current_topic, None)
-        if not topic_type:
-            return [f"[red]Topic {escape_markup(self.current_topic)} is not valid.[/]"]
-
-        self.rich_log.write(f"[bold]Echoing topic: {escape_markup(self.current_topic)}, {topic_type[0]}[/bold]") 
+        topic_type = type_list[0]
         try:
-            msg_type = get_message(topic_type[0])
+            msg_type = get_message(topic_type)
         except Exception as e:
-            self.rich_log.write(f"[red]Failed to get message type for {escape_markup(self.current_topic)}: {escape_markup(str(e))}[/]")
-            return 
+            self.rich_log.write(f"[red]Failed to get message type for {escape_markup(self.current_topic)}: "
+                        f"{escape_markup(str(e))}[/]")
+            return
 
-        qos_profile = QoSProfile(depth=rclpy.qos.QoSHistoryPolicy.KEEP_LAST,
-                                 reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
-                                 durability=rclpy.qos.DurabilityPolicy.VOLATILE)
-        self._sub = self.ros_node.create_subscription(msg_type, self.current_topic, self.echo_callback, qos_profile=qos_profile, callback_group=ReentrantCallbackGroup())
+        self.rich_log.write(
+            f"[bold]Echoing topic: [yellow]{escape_markup(self.current_topic)}[/] "
+            f"[dim]({escape_markup(topic_type)})[/][/bold]"
+        )
+
+        qos_profile = QoSProfile(
+            depth=rclpy.qos.QoSHistoryPolicy.KEEP_LAST,
+            reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
+            durability=rclpy.qos.DurabilityPolicy.VOLATILE
+        )
+        try:
+            self._sub = self.ros_node.create_subscription(
+                msg_type, self.current_topic, self.echo_callback,
+                qos_profile=qos_profile, callback_group=ReentrantCallbackGroup()
+            )
+
+        except Exception as e:
+            self.rich_log.write(f"[red]Failed to subscribe to {escape_markup(self.current_topic)}: "
+                        f"{escape_markup(str(e))}[/]")
+            self._sub = None
+            return
 
     def echo_callback(self, msg):
-        message = f"[dim]Message from {escape_markup(self.current_topic)}: [/dim] {escape_markup(str(msg))}"
-        self.rich_log.write(message)
+        line = f"[dim]Message from {escape(self.current_topic)}: [/dim] {escape(str(msg))}"
+        self._buffer.append(line)

@@ -1,7 +1,9 @@
 from textual.events import Focus, Key
 from textual.widgets import (
     ListView,
+    RichLog
 )
+from textual.binding import Binding
 
 class CustomListView(ListView):
     """Custom ListView that automatically focuses on mount."""
@@ -31,3 +33,28 @@ class CustomListView(ListView):
                     self.index = self.children.index(visible_prev)
 
             event.stop()
+
+
+class CustomRichLog(RichLog):
+    BINDINGS = [
+        Binding("g,g", "go_top", "Top", show=False),     # gg -> 先頭へ
+        Binding("G", "go_bottom", "Bottom", show=False), # G  -> 末尾へ
+        Binding("j", "scroll_down", "Down", show=False), # 1行下
+        Binding("k", "scroll_up", "Up", show=False),     # 1行上
+    ]
+
+    def action_go_top(self) -> None:
+        super().action_scroll_home()
+        self.auto_scroll = False
+
+    def action_go_bottom(self) -> None:
+        super().action_scroll_end()
+        self.auto_scroll = True
+
+    def action_scroll_up(self) -> None:
+        super().action_scroll_up()
+        self.auto_scroll = False
+
+    def action_scroll_down(self) -> None:
+        super().action_scroll_down()
+        self.auto_scroll = False
