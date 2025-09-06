@@ -55,6 +55,7 @@ class ParameterListWidget(Container):
         self.list_for_search = []
 
         self.searching = False
+        self._prev_searching = False
 
     def compose(self) -> ComposeResult:
         yield self.listview
@@ -78,6 +79,7 @@ class ParameterListWidget(Container):
 
     async def update_parameter_list(self):
         if self.searching:
+            self._prev_searching = True
             if self.screen.focused == self.app.query_one("#footer"):
                 footer = self.app.query_one("#footer")
                 query = footer.search_input
@@ -132,7 +134,7 @@ class ParameterListWidget(Container):
                             self.list_for_search.remove(f"{node}-{parameter}")
                     self.parameter_dict.pop(node)
 
-                elif node_status == 'green' and node in self.parameter_dict:
+                elif self._prev_searching:
                     for parameter in self.parameter_dict[node]:
                         css_id = create_css_id(f"{node}-{parameter}")
                         match = self.listview.query(f"#{css_id}").first()
@@ -141,6 +143,8 @@ class ParameterListWidget(Container):
 
                 if self.listview.index and self.listview.index >= len(self.listview.children):
                     self.listview.index = max(0, len(self.listview.children) - 1)
+    
+            self._prev_searching = False
 
     def on_list_view_highlighted(self, event):
         index = self.listview.index

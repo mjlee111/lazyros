@@ -190,20 +190,6 @@ class LazyRosApp(App):
         self.footer.refresh(layout=True)
         self.refresh(layout=True)
 
-    #def deactive_search(self, focus_listview=False, end_searching=True) -> None:
-    #
-    #    footer = self.query_one(SearchFooter)
-    #    if end_searching:
-    #        footer.exit_search()
-    #        self.screen.focus(None)
-#
-    #    # focus back to listview during searching
-    #    if focus_listview:
-    #        widget_id = footer.searching_id
-    #        widget = self.query_one(f"#{widget_id}")
-    #        widget.searching = not end_searching 
-    #        widget.listview.focus()
-
     def action_help(self):
         self.push_screen(HelpModal())
 
