@@ -38,6 +38,8 @@ class EchoViewWidget(Container):
         self.rich_log = CustomRichLog(wrap=True, highlight=True, markup=True, id="echo-log", max_lines=1000)
         self._prev_echo_time = time.time()
 
+        self.callback_group = ReentrantCallbackGroup()
+
     def compose(self) -> ComposeResult:
         yield self.rich_log
 
@@ -115,7 +117,7 @@ class EchoViewWidget(Container):
         try:
             self._sub = self.ros_node.create_subscription(
                 msg_type, self.current_topic, self.echo_callback,
-                qos_profile=qos_profile, callback_group=ReentrantCallbackGroup()
+                qos_profile=qos_profile, callback_group=self.callback_group
             )
 
         except Exception as e:

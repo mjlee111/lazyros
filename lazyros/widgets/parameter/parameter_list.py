@@ -80,7 +80,7 @@ class ParameterListWidget(Container):
         if self.searching:
             if self.screen.focused == self.app.query_one("#footer"):
                 footer = self.app.query_one("#footer")
-                query = footer.input
+                query = footer.search_input
                 param_list = self.apply_search_filter(query)
                 visible = set(param_list)
                 hidden = set(self.list_for_search) - visible

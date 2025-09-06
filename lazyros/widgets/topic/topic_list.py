@@ -94,7 +94,7 @@ class TopicListWidget(Container):
         if self.searching:
             if self.screen.focused == self.app.query_one("#footer"):
                 footer = self.app.query_one("#footer")
-                query = footer.input
+                query = footer.search_input
 
                 topic_list = self.apply_search_filter(query)
                 visible = set(topic_list)

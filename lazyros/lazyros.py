@@ -1,9 +1,5 @@
-import threading
 import signal
 import atexit
-
-import rclpy
-from rclpy.node import Node
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -25,7 +21,7 @@ from lazyros.widgets.parameter.parameter_list import ParameterListWidget
 from lazyros.widgets.parameter.parameter_value import ParameterValueWidget
 from lazyros.widgets.parameter.parameter_info import ParameterInfoWidget
 
-from lazyros.search import SearchFooter
+from lazyros.utils.custom_widgets import SearchFooter
 from lazyros.utils.utility import RosRunner
 
 
@@ -41,7 +37,7 @@ class HelpModal(ModalScreen):
         background: $background;
     }
     """
-    BINDINGS = [Binding("escape", "dismiss", "Quit Modal")]
+    BINDINGS = [Binding("escape", "dismiss", "Quit Modal", priority=True)]
 
     def compose(self):
         help_text = (
@@ -82,6 +78,7 @@ class LazyRosApp(App):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
+        self._searching = False
         ros_runner.start()
         self.ros_node = ros_runner.node
         assert self.ros_node is not None, "ROS node must be available before compose()"
@@ -95,9 +92,12 @@ class LazyRosApp(App):
         ros_runner.stop()
 
     def on_key(self, event) -> None:
+        #if event.key == "tab" and self._searching:
+        #    self.end_search()
+        #    event.stop()
         if event.key == "enter":
-            if self.screen.focused == self.query_one(SearchFooter):
-                self.deactive_search(restore_focus=True, escape_searching=False)
+            if self._searching:
+                self.focus_searched_listview()
             else:
                 self.action_focus_right_pane()
             event.stop()
@@ -107,8 +107,8 @@ class LazyRosApp(App):
         elif event.character == "]":
             self.action_next_tab()
             event.stop()
-        elif event.key == "escape":
-            self.deactive_search(restore_focus=True)
+        elif event.key == "escape" and self._searching:
+            self.end_search()
             event.stop()
 
     def compose(self) -> ComposeResult:
@@ -154,35 +154,55 @@ class LazyRosApp(App):
                     with TabPane("Info", id="info"):
                         yield ParameterInfoWidget(self.ros_node, classes="view-content", id="parameter-info-view-content")
 
-        yield SearchFooter(id="footer")
+        self.footer = SearchFooter(id="footer")
+        yield self.footer 
 
     # ========= actions =========
-    def deactive_search(self, restore_focus=False, escape_searching=True) -> None:
-        footer = self.query_one(SearchFooter)
-        if escape_searching:
-            footer.exit_search()
-            self.screen.focus(None)
 
-        if restore_focus:
-            widget_id = footer.searching_id
-            widget = self.query_one(f"#{widget_id}")
-            widget.searching = not escape_searching
-            widget.listview.focus()
+    def action_search(self):
+        self._searching = True 
+        searching_listview = self.LISTVIEW_CONTAINERS[self.current_pane_index] + "-listview"
+        self.footer.searching_id = searching_listview
+        listview = self.query_one(f"#{searching_listview}")
+        listview.searching = True
 
-        footer.refresh(layout=True)
+        self.footer.enter_search()
+        self.set_focus(self.footer)
+
+    def focus_searched_listview(self):
+        listview_id = self.footer.searching_id
+        if listview_id:
+            listview = self.query_one(f"#{listview_id}")
+            listview.listview.focus()
+        
+    def end_search(self):
+        self.footer.exit_search()
+        self.screen.focus(None)
+
+        listview_id = self.footer.searching_id
+        if listview_id:
+            listview = self.query_one(f"#{listview_id}")
+            listview.searching = False
+            listview.listview.focus()
+
+        self._searching = False
+
+        self.footer.refresh(layout=True)
         self.refresh(layout=True)
 
-    def action_search(self) -> None:
-        footer = self.query_one(SearchFooter)
-        widget_id = f"{self.LISTVIEW_CONTAINERS[self.current_pane_index]}-listview"
-        footer.searching_id = widget_id
-        widget = self.query_one(f"#{widget_id}")
-        widget.searching = True
-
-        footer.enter_search()
-        self.set_focus(footer)
-        footer.refresh(layout=True)
-        self.refresh(layout=True)
+    #def deactive_search(self, focus_listview=False, end_searching=True) -> None:
+    #
+    #    footer = self.query_one(SearchFooter)
+    #    if end_searching:
+    #        footer.exit_search()
+    #        self.screen.focus(None)
+#
+    #    # focus back to listview during searching
+    #    if focus_listview:
+    #        widget_id = footer.searching_id
+    #        widget = self.query_one(f"#{widget_id}")
+    #        widget.searching = not end_searching 
+    #        widget.listview.focus()
 
     def action_help(self):
         self.push_screen(HelpModal())
@@ -191,12 +211,20 @@ class LazyRosApp(App):
         self.focused_pane = "right"
 
     def action_focus_next_listview(self) -> None:
+        if self._searching:
+            self.end_search()
+            return
+
         if self.focused_pane == "right":
             self.focused_pane = "left"
         else:
             self.current_pane_index = (self.current_pane_index + 1) % len(self.LISTVIEW_CONTAINERS)
 
     def action_focus_previous_listview(self) -> None:
+        if self._searching:
+            self.end_search()
+            return
+
         if self.focused_pane == "right":
             self.focused_pane = "left"
         else:
@@ -211,7 +239,6 @@ class LazyRosApp(App):
             widget.rich_log.focus()
 
     def _focus_listview(self):
-        self.log("called!")
         current_listview = self.LISTVIEW_CONTAINERS[self.current_pane_index]
         self.query_one(f"#{current_listview}-listview").listview.focus()
 
