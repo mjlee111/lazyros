@@ -7,7 +7,6 @@ from textual.widgets import (
     Label,
     ListItem,
     ListView,
-    Input,
 )
 from textual.events import Key
 from rich.markup import escape
@@ -17,7 +16,7 @@ import os
 
 from rich.text import Text as RichText
 from textual.events import Focus
-from textual import on
+from lazyros.utils.utility import create_css_id
 
 
 def escape_markup(text: str) -> str:
@@ -93,9 +92,6 @@ class TopicListWidget(Container):
     async def update_topic_list(self) -> None:
         """Fetch and update the list of topics."""
 
-        if not self.listview.index and not self.searching:
-            self.listview.index = 0
-
         if self.searching:
             if self.screen.focused == self.app.query_one("#footer"):
                 footer = self.app.query_one("#footer")
@@ -107,7 +103,8 @@ class TopicListWidget(Container):
 
                 searching_index = len(self.topic_dict.keys()) + 1
                 for n in visible:
-                    item = self.listview.query(f"#{n.lstrip('/').replace('/', '-')}").first()
+                    css_id = create_css_id(n)
+                    item = self.listview.query(f"#{css_id}").first()
                     if item:
                         item.display=True
 
@@ -118,41 +115,37 @@ class TopicListWidget(Container):
                 self.listview.index = searching_index
 
                 for n in hidden:
-                    item = self.listview.query(f"#{n.lstrip('/').replace('/', '-')}").first()
+                    css_id = create_css_id(n)
+                    item = self.listview.query(f"#{css_id}").first()
                     if item:
                         item.display=False
 
         else:
             topics = self.ros_node.get_topic_names_and_types()
-            need_update = False
-
             listview_topics = set(self.topic_dict.keys())
 
             for topic in topics:
                 if self.ignore_parser.should_ignore(topic[0], 'topic'):
                     continue
                 if topic[0] not in self.topic_dict:
-                    need_update = True
                     self.topic_dict[topic[0]] = topic[1]
-                    css_id = topic[0].lstrip("/").replace("/", "-")
-                    css_id = css_id.replace(".", "-")
+                    css_id = create_css_id(topic[0])
                     self.listview.extend([ListItem(Label(RichText.assemble(RichText(topic[0]))), id=css_id)])
                 else:
-                    item = self.listview.query(f"#{topic[0].lstrip('/').replace('/', '-')}").first()
-                    if item:
-                        item.display = True
+                    css_id = create_css_id(topic[0])
+                    match = self.listview.query(f"#{css_id}").first()
+                    if match:
+                        match.display = True
                     listview_topics.remove(topic[0])
 
             for topic in listview_topics:
-                css_id = topic.lstrip("/").replace("/", "-")
-                css_id = css_id.replace(".", "-")
-                match = self.listview.query(f"#{css_id}")
+                css_id = create_css_id(topic)
+                match = self.listview.query(f"#{css_id}").first()
                 if match:
                    match.remove() 
                 self.topic_dict.pop(topic, None)
 
             if self.listview.index and self.listview.index >= len(self.listview.children):
-                # 最後を超えていたら末尾に移動
                 self.listview.index = max(0, len(self.listview.children) - 1)
 
     def on_list_view_highlighted(self, event):

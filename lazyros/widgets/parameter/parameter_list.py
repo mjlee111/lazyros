@@ -9,7 +9,6 @@ from textual.containers import Container
 from textual.widgets import (
     Label,
     ListItem,
-    ListView,
 )
 from rich.markup import escape
 
@@ -18,44 +17,14 @@ from rcl_interfaces.srv import ListParameters
 
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rich.text import Text as RichText
-from textual.events import Focus
 
-from textual.events import Key
+from lazyros.utils.utility import create_css_id
+from lazyros.utils.custom_widgets import CustomListView 
+
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
     return escape(text)
-
-
-class MyListView(ListView):
-    """Custom ListView that automatically focuses on mount."""
-
-    def on_focus(self, event: Focus) -> None:
-        if self.children and not self.index:
-            self.index = 0
-
-    def on_key(self, event: Key) -> None:
-        if event.key in ("up", "down"):
-            items = [i for i in self.children if i.display] 
-            if not items:
-                return
-
-            current = self.index or 0
-            # index が非表示を指していた場合は0にリセット
-            if not self.children[current].display:
-                self.index = self.children.index(items[0])
-                return
-
-            if event.key == "down":
-                visible_next = next((i for i in items if self.children.index(i) > current), None)
-                if visible_next:
-                    self.index = self.children.index(visible_next)
-            elif event.key == "up":
-                visible_prev = next((i for i in reversed(items) if self.children.index(i) < current), None)
-                if visible_prev:
-                    self.index = self.children.index(visible_prev)
-
-            event.stop()
 
 class ParameterListWidget(Container):
     """A widget to display the list of ROS parameters."""
@@ -75,7 +44,7 @@ class ParameterListWidget(Container):
     def __init__(self, ros_node: Node, **kwargs) -> None:
         super().__init__(**kwargs)
         self.ros_node = ros_node
-        self.listview = MyListView()
+        self.listview = CustomListView()
 
         ignore_file_path = os.path.join(os.path.dirname(__file__), '../../../config/display_ignore.yaml')
         self.ignore_parser = IgnoreParser(os.path.abspath(ignore_file_path))
@@ -108,9 +77,6 @@ class ParameterListWidget(Container):
         return result.names
 
     async def update_parameter_list(self):
-        #if self.listview.index is None and not self.searching:
-        #     self.listview.index = 0
-
         if self.searching:
             if self.screen.focused == self.app.query_one("#footer"):
                 footer = self.app.query_one("#footer")
@@ -120,15 +86,18 @@ class ParameterListWidget(Container):
                 hidden = set(self.list_for_search) - visible
                 searching_index = len(self.list_for_search) + 1
                 for n in visible:
-                    item = self.listview.query(f"#{n.lstrip('/').replace('/', '-')}").first()
+                    css_id = create_css_id(n)
+                    item = self.listview.query(f"#{css_id}").first()
                     if item:
                         item.display=True
                     index = self.listview.children.index(item) if item else None
                     if index is not None and index < searching_index:
                         searching_index = index
                 self.listview.index = searching_index
+
                 for n in hidden:
-                    item = self.listview.query(f"#{n.lstrip('/').replace('/', '-')}").first()
+                    css_id = create_css_id(n)
+                    item = self.listview.query(f"#{css_id}").first()
                     if item:
                         item.display=False
         else:
@@ -149,33 +118,31 @@ class ParameterListWidget(Container):
                         )
                         should_ignore = self.ignore_parser.should_ignore(str(label), 'parameter')
                         if not should_ignore:
-                            css_id = f"{node}-{parameter}".lstrip("/").replace("/", "-")
-                            css_id = css_id.replace(".", "-")
+                            css_id = create_css_id(f"{node}-{parameter}") 
                             self.listview.extend([ListItem(Label(label), id=css_id)])
                             self.list_for_search.append(f"{node}-{parameter}")
                             self.parameter_dict[node].append(parameter)
+
                 elif node in self.parameter_dict and node_status != "green":
                     for parameter in self.parameter_dict[node]:
-                        css_id = f"{node}-{parameter}".lstrip("/").replace("/", "-")
-                        css_id = css_id.replace(".", "-")
+                        css_id = create_css_id(f"{node}-{parameter}")
                         match = self.listview.query(f"#{css_id}")
                         if match:
                             match.remove()
                             self.list_for_search.remove(f"{node}-{parameter}")
                     self.parameter_dict.pop(node)
+
                 elif node_status == 'green' and node in self.parameter_dict:
                     for parameter in self.parameter_dict[node]:
-                        css_id = f"{node}-{parameter}".lstrip("/").replace("/", "-")
-                        css_id = css_id.replace(".", "-")
+                        css_id = create_css_id(f"{node}-{parameter}")
                         match = self.listview.query(f"#{css_id}").first()
                         if match:
                             match.display = True
+
                 if self.listview.index and self.listview.index >= len(self.listview.children):
-                    # 最後を超えていたら末尾に移動
                     self.listview.index = max(0, len(self.listview.children) - 1)
 
     def on_list_view_highlighted(self, event):
-
         index = self.listview.index
         if index is None or not (0 <= index < len(self.listview.children)):
             self.selected_param = None

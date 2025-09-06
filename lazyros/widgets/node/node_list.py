@@ -1,57 +1,21 @@
-import subprocess
-import asyncio
+import os
+from dataclasses import dataclass
 from rclpy.node import Node
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container
 from textual.widgets import Label, ListItem, ListView
+from textual.events import Focus, Key
 from rich.markup import escape
 from rich.text import Text as RichText
-from dataclasses import dataclass
-
 from lazyros.utils.ignore_parser import IgnoreParser
-from lazyros.modals.lifecycle_modal import LifecycleModal
+from lazyros.utils.utility import create_css_id
+from lazyros.utils.custom_widgets import CustomListView
 
-import os
-import signal
-
-from textual.events import Focus
-import re
-from textual.events import Key
 
 def escape_markup(text: str) -> str:
     return escape(text)
 
-
-class MyListView(ListView):
-    """Custom ListView that automatically focuses on mount."""
-
-    def on_focus(self, event: Focus) -> None:
-        if self.children and not self.index:
-            self.index = 0
-
-    def on_key(self, event: Key) -> None:
-        if event.key in ("up", "down"):
-            items = [i for i in self.children if i.display] 
-            if not items:
-                return
-
-            current = self.index or 0
-            # index が非表示を指していた場合は0にリセット
-            if not self.children[current].display:
-                self.index = self.children.index(items[0])
-                return
-
-            if event.key == "down":
-                visible_next = next((i for i in items if self.children.index(i) > current), None)
-                if visible_next:
-                    self.index = self.children.index(visible_next)
-            elif event.key == "up":
-                visible_prev = next((i for i in reversed(items) if self.children.index(i) < current), None)
-                if visible_prev:
-                    self.index = self.children.index(visible_prev)
-
-            event.stop()
             
 @dataclass
 class NodeData:
@@ -65,8 +29,7 @@ class NodeListWidget(Container):
     def __init__(self, ros_node: Node, ignore_file_path='config/display_ignore.yaml', **kwargs) -> None:
         super().__init__(**kwargs)
         self.ros_node = ros_node
-        self.listview = MyListView()
-        self.searching_listview = MyListView()
+        self.listview = CustomListView()
         self.node_listview_dict = {}
         self.searching = False
         
@@ -75,8 +38,6 @@ class NodeListWidget(Container):
         self.ignore_parser = IgnoreParser(os.path.abspath(ignore_file_path))
 
     def compose(self) -> ComposeResult:
-        if self.searching:
-            yield self.searching_listview
         yield self.listview
 
     def on_mount(self) -> None:

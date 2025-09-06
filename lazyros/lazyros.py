@@ -1,14 +1,14 @@
+import threading
+import signal
+import atexit
+
 import rclpy
 from rclpy.node import Node
+
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical, ScrollableContainer
-from textual.widgets import (
-    Header,
-    Static,
-    TabbedContent,
-    TabPane,
-)
+from textual.widgets import Header, Static, TabbedContent, TabPane
 from textual.reactive import reactive
 from textual.screen import ModalScreen
 
@@ -26,43 +26,40 @@ from lazyros.widgets.parameter.parameter_value import ParameterValueWidget
 from lazyros.widgets.parameter.parameter_info import ParameterInfoWidget
 
 from lazyros.search import SearchFooter
-from lazyros.utils.utility import start_ros_in_thread
+from lazyros.utils.utility import RosRunner
 
+
+ros_runner = RosRunner()
+atexit.register(ros_runner.stop)
 
 class HelpModal(ModalScreen):
     CSS = """
-    HelpModal {
-        align: center middle;
-        layer: modal;
-    }
-    
+    HelpModal { align: center middle; layer: modal; }
     #modal-container {
-        width: auto;
-        height: auto;
+        width: auto; height: auto;
         border: round white;
         background: $background;
     }
     """
-    
-    BINDINGS = [
-        Binding("escape", "dismiss", "Quit Modal")
-    ]
-    
+    BINDINGS = [Binding("escape", "dismiss", "Quit Modal")]
+
     def compose(self):
         help_text = (
             "Help Menu\n"
             "\n"
             "enter        Focus right window\n"
-            "\[            Previous Tab\n"
+            "[            Previous Tab\n"
             "]            Next Tab\n"
             "tab          Focus next container\n"
             "shift+tab    Focus previous container"
         )
-
         yield Static(help_text, id="modal-container")
 
+
+# ===================== Textual App =====================
 class LazyRosApp(App):
     """A Textual app to monitor ROS information."""
+    CSS_PATH = "lazyros.css"
 
     BINDINGS = [
         Binding("q", "quit", "Quit", show=True, priority=True),
@@ -72,7 +69,6 @@ class LazyRosApp(App):
         Binding("shift+tab", "focus_previous_listview", "Focus Previous ListView", show=False, priority=True),
     ]
 
-    CSS_PATH = "lazyros.css"
     LISTVIEW_CONTAINERS = ["node", "topic", "parameter"]
     TAB_ID_DICT = {
         "node": ["log", "lifecycle", "info"],
@@ -83,30 +79,22 @@ class LazyRosApp(App):
     focused_pane = reactive("left")
     current_pane_index = reactive(0)
 
-    def __init__(self, ros_node: Node):
-        super().__init__()
-        self.ros_node = ros_node
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        ros_runner.start()
+        self.ros_node = ros_runner.node
+        assert self.ros_node is not None, "ROS node must be available before compose()"
 
     def on_mount(self) -> None:
-        """Called when app is mounted. Perform async setup here."""
         node_list_widget = self.query_one("#node-listview")
-        if node_list_widget:
-            node_list_widget.listview.focus()
-
+        node_list_widget.listview.focus()
         self.right_pane = self.query_one("#right-pane")
 
-    def on_key(self, event) -> None:
-        """Handle key events, override default tab behavior."""
+    def on_shutdown(self, _event) -> None:
+        ros_runner.stop()
 
-        #if event.key == "tab" and self.screen.focused == self.query_one(SearchFooter):
-        #    self.deactive_search()
-#
-        #if event.key == "tab":
-        #    self.action_focus_next_listview()
-        #    event.stop()
-        #elif event.key == "shift+tab":
-        #    self.action_focus_previous_listview()
-        #    event.stop()
+    def on_key(self, event) -> None:
         if event.key == "enter":
             if self.screen.focused == self.query_one(SearchFooter):
                 self.deactive_search(restore_focus=True, escape_searching=False)
@@ -124,8 +112,6 @@ class LazyRosApp(App):
             event.stop()
 
     def compose(self) -> ComposeResult:
-        """Create child widgets for the app."""
-
         yield Header()
 
         with Horizontal():
@@ -155,11 +141,13 @@ class LazyRosApp(App):
                         yield LifecycleWidget(self.ros_node, classes="view-content", id="node-lifecycle-view-content")
                     with TabPane("Info", id="info"):
                         yield InfoViewWidget(self.ros_node, classes="view-content", id="node-info-view-content")
+
                 with TabbedContent("Info", "Echo", id="topic-tabs", classes="hidden"):
                     with TabPane("Echo", id="echo"):
                         yield EchoViewWidget(self.ros_node, classes="view-content", id="topic-echo-view-content")
                     with TabPane("Info", id="info"):
                         yield TopicInfoWidget(self.ros_node, classes="view-content", id="topic-info-view-content")
+
                 with TabbedContent("Info", "Value", id="parameter-tabs", classes="hidden"):
                     with TabPane("Value", id="value"):
                         yield ParameterValueWidget(self.ros_node, classes="view-content", id="parameter-value-view-content")
@@ -168,7 +156,7 @@ class LazyRosApp(App):
 
         yield SearchFooter(id="footer")
 
-    # keybindings for actions
+    # ========= actions =========
     def deactive_search(self, restore_focus=False, escape_searching=True) -> None:
         footer = self.query_one(SearchFooter)
         if escape_searching:
@@ -177,8 +165,8 @@ class LazyRosApp(App):
 
         if restore_focus:
             widget_id = footer.searching_id
-            widget = self.query_one(f'#{widget_id}')
-            widget.searching = not escape_searching 
+            widget = self.query_one(f"#{widget_id}")
+            widget.searching = not escape_searching
             widget.listview.focus()
 
         footer.refresh(layout=True)
@@ -186,14 +174,9 @@ class LazyRosApp(App):
 
     def action_search(self) -> None:
         footer = self.query_one(SearchFooter)
-        focused = self.screen.focused
-        #if type(focused) != ListView:
-        #    self.log(f"Focused widget is not a ListView: {type(focused)}")
-        #    return
-
-        widget_id = f"{self.LISTVIEW_CONTAINERS[self.current_pane_index]}-listview"  
+        widget_id = f"{self.LISTVIEW_CONTAINERS[self.current_pane_index]}-listview"
         footer.searching_id = widget_id
-        widget = self.query_one(f'#{widget_id}')
+        widget = self.query_one(f"#{widget_id}")
         widget.searching = True
 
         footer.enter_search()
@@ -220,42 +203,39 @@ class LazyRosApp(App):
         else:
             self.current_pane_index = (self.current_pane_index - 1) % len(self.LISTVIEW_CONTAINERS)
 
+    # ========= helpers =========
     def _focus_right_pane(self):
         current_listview = self.LISTVIEW_CONTAINERS[self.current_pane_index]
-        tabs = self.query_one(f'#{current_listview}-tabs')
-        widget = self.query_one(f'#{current_listview}-{tabs.active}-view-content')
-        if hasattr(widget, 'rich_log'):
+        tabs = self.query_one(f"#{current_listview}-tabs")
+        widget = self.query_one(f"#{current_listview}-{tabs.active}-view-content")
+        if hasattr(widget, "rich_log"):
             widget.rich_log.focus()
 
     def _focus_listview(self):
         current_listview = self.LISTVIEW_CONTAINERS[self.current_pane_index]
-        self.query_one(f'#{current_listview}-listview').listview.focus()
+        self.query_one(f"#{current_listview}-listview").listview.focus()
 
     def _set_active_pane(self, widget, active: bool) -> None:
         widget.set_class(active, "-active")
 
     def _reset_frame_highlight(self) -> None:
         right_active = (self.focused_pane == "right")
-        self._set_active_pane(self.right_pane, right_active)
-
-        active_index = self.current_pane_index if not right_active else -1  
-        self.log(f"Active index: {active_index}")
+        self._set_active_pane(self.query_one("#right-pane"), right_active)
+        active_index = self.current_pane_index if not right_active else -1
         for i, name in enumerate(self.LISTVIEW_CONTAINERS):
-            w = self.query_one(f'#{name}-container')
+            w = self.query_one(f"#{name}-container")
             self._set_active_pane(w, i == active_index)
 
     def _update_right_pane(self) -> None:
         current_listview = self.LISTVIEW_CONTAINERS[self.current_pane_index]
-
         for name in self.LISTVIEW_CONTAINERS:
             tabs = self.query_one(f"#{name}-tabs")
-            active = (name == current_listview)
-            tabs.set_class(not active, "hidden")
+            tabs.set_class(name != current_listview, "hidden")
 
-    def watch_focused_pane(self, _) -> None:
+    def watch_focused_pane(self, _value) -> None:
         self._reset_frame_highlight()
 
-    def watch_current_pane_index(self, _) -> None:
+    def watch_current_pane_index(self, _value) -> None:
         self._reset_frame_highlight()
         self._focus_listview()
         self._update_right_pane()
@@ -270,22 +250,27 @@ class LazyRosApp(App):
         current_listview = self.LISTVIEW_CONTAINERS[self.current_pane_index]
         tabs = self.query_one(f"#{current_listview}-tabs")
         tab_ids = self.TAB_ID_DICT[current_listview]
-
         try:
             idx = tab_ids.index(tabs.active)
         except ValueError:
             idx = 0
-
         new_idx = idx + delta
         if 0 <= new_idx < len(tab_ids):
             tabs.active = tab_ids[new_idx]
 
-def main(args=None):
-    rclpy.init(args=args)
-    ros_node = Node("lazyros_monitor_node")
-    executor, ros_thread = start_ros_in_thread(ros_node)
-    app = LazyRosApp(ros_node)
-    app.run()
+
+def main():
+    app = LazyRosApp()
+
+    def _sigint(_sig, _frm):
+        app.exit()
+
+    signal.signal(signal.SIGINT, _sigint)
+    try:
+        app.run()
+    finally:
+        ros_runner.stop()
+
 
 if __name__ == "__main__":
     main()
