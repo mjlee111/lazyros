@@ -62,7 +62,7 @@ class LazyRosApp(App):
     CSS_PATH = "lazyros.css"
 
     BINDINGS = [
-        Binding("q", "quit", "Quit", show=True, priority=True),
+        Binding("ctrl+q", "quit", "Quit", show=True, priority=True),
         Binding("?", "help", "Help", show=True),
         Binding("/", "search", "Search", show=False),
         Binding("tab", "focus_next_listview", "Focus Next ListView", show=False, priority=True),
@@ -189,7 +189,6 @@ class LazyRosApp(App):
 
     def action_focus_right_pane(self) -> None:
         self.focused_pane = "right"
-        self._focus_right_pane()
 
     def action_focus_next_listview(self) -> None:
         if self.focused_pane == "right":
@@ -212,6 +211,7 @@ class LazyRosApp(App):
             widget.rich_log.focus()
 
     def _focus_listview(self):
+        self.log("called!")
         current_listview = self.LISTVIEW_CONTAINERS[self.current_pane_index]
         self.query_one(f"#{current_listview}-listview").listview.focus()
 
@@ -234,6 +234,7 @@ class LazyRosApp(App):
 
     def watch_focused_pane(self, _value) -> None:
         self._reset_frame_highlight()
+        self._focus_listview() if self.focused_pane == "left" else self._focus_right_pane()
 
     def watch_current_pane_index(self, _value) -> None:
         self._reset_frame_highlight()

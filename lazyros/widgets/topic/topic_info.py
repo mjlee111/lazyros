@@ -1,21 +1,17 @@
+import asyncio
 from rclpy.node import Node
 from textual.app import ComposeResult
 from textual.containers import Container
 from textual.widgets import Static
 from rich.markup import escape
 from rich.text import Text
-from rclpy.action import graph  # 使ってなければ削除OK
-import asyncio
-from rich.text import Text
 
-def escape_markup(text: str) -> str:
-    return escape(text)
 
 class TopicInfoWidget(Container):
     """Widget for displaying ROS topic information."""
 
     DEFAULT_CSS = """
-    TopicInfoWidget {           /* ← 修正: セレクタ名 */
+    TopicInfoWidget {
         overflow-y: scroll;
     }
     """
@@ -23,7 +19,7 @@ class TopicInfoWidget(Container):
     def __init__(self, ros_node: Node, **kwargs) -> None:
         super().__init__(**kwargs)
         self.ros_node = ros_node
-        self.info_dict: dict[str, list[str]] = {}  # 文字列のリストをキャッシュ
+        self.info_dict: dict[str, list[str]] = {}
 
         self.selected_topic = None
         self.current_topic = None
@@ -32,7 +28,7 @@ class TopicInfoWidget(Container):
         yield Static("", id="topic-info")
 
     def on_mount(self):
-        self.set_interval(1, self.update_display)  # 1秒ごとに更新
+        self.set_interval(1, self.update_display)
 
     async def update_display(self):
         try:
@@ -45,7 +41,6 @@ class TopicInfoWidget(Container):
         view = self.query_one("#topic-info", Static)
 
         if self.selected_topic is None:
-            # ← 素の文字列ではなく Text.from_markup を使う
             view.update(Text.from_markup("[red]No topic is selected yet.[/]"))
             return
 
@@ -65,7 +60,7 @@ class TopicInfoWidget(Container):
 
         topic_dict = self.topic_listview.topic_dict if self.topic_listview else None
         if not topic_dict:
-            return [f"[red]Topic {escape_markup(self.selected_topic)} is not set.[/]"]
+            return [f"[red]Topic {escape(self.selected_topic)} is not set.[/]"]
 
         topic_types = dict(topic_dict).get(self.selected_topic, [])
 
@@ -73,10 +68,13 @@ class TopicInfoWidget(Container):
         subscription_count = len(self.ros_node.get_subscriptions_info_by_topic(self.selected_topic))
 
         info_lines: list[str] = []
-        info_lines.append(f"Topic: {escape_markup(self.selected_topic)}")
-        info_lines.append(f"  Type: {escape_markup(', '.join(topic_types))}")
-        info_lines.append(f"  Publisher Count: {publisher_count}")
-        info_lines.append(f"  Subscription Count: {subscription_count}")
+
+        info_lines = [
+            f"[bold cyan]Topic:[/] [yellow]{escape(self.selected_topic)}[/]",
+            f"[bold cyan]Type:[/] [green]{escape(', '.join(topic_types))}[/]",
+            f"[bold cyan]Publishers:[/] [magenta]{publisher_count}[/]",
+            f"[bold cyan]Subscriptions:[/] [magenta]{subscription_count}[/]",
+        ]
 
         self.info_dict[self.selected_topic] = info_lines
         return info_lines

@@ -37,7 +37,6 @@ class MyListView(ListView):
                 return
 
             current = self.index or 0
-            # index が非表示を指していた場合は0にリセット
             if not self.children[current].display:
                 self.index = self.children.index(items[0])
                 return
