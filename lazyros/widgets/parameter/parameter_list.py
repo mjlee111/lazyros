@@ -147,6 +147,9 @@ class ParameterListWidget(Container):
             self._prev_searching = False
 
     def on_list_view_highlighted(self, event):
+        self.app.current_pane_index = 2
+        self.app.focused_pane = "left"
+
         index = self.listview.index
         if index is None or not (0 <= index < len(self.listview.children)):
             self.selected_param = None

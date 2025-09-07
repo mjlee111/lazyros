@@ -127,5 +127,7 @@ class EchoViewWidget(Container):
             return
 
     def echo_callback(self, msg):
+        if not self._sub:
+            return
         line = f"[dim]Message from {escape(self.current_topic)}: [/dim] {escape(str(msg))}"
         self._buffer.append(line)

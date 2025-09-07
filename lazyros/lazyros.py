@@ -91,10 +91,21 @@ class LazyRosApp(App):
     def on_shutdown(self, _event) -> None:
         ros_runner.stop()
 
+    def on_mouse_down(self, event) -> None:
+        from lazyros.utils.custom_widgets import CustomListView, SearchFooter
+        focus_type = type(self.screen.focused)
+        focus = self.screen.focused
+        self.log(f"Focused: {focus} ({focus_type})")
+
+        if focus_type is CustomListView:
+            return
+        elif focus_type is SearchFooter:
+            return
+        else:
+            self.focused_pane = "right"
+        
     def on_key(self, event) -> None:
-        #if event.key == "tab" and self._searching:
-        #    self.end_search()
-        #    event.stop()
+
         if event.key == "enter":
             if self._searching:
                 self.focus_searched_listview()
@@ -184,6 +195,7 @@ class LazyRosApp(App):
             listview = self.query_one(f"#{listview_id}")
             listview.searching = False
             listview.listview.focus()
+            listview.listview.index = 0
 
         self._searching = False
 

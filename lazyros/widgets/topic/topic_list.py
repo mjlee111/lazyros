@@ -17,40 +17,13 @@ import os
 from rich.text import Text as RichText
 from textual.events import Focus
 from lazyros.utils.utility import create_css_id
+from lazyros.utils.custom_widgets import CustomListView
 
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
     return escape(text)
 
-class MyListView(ListView):
-    """Custom ListView that automatically focuses on mount."""
-
-    def on_focus(self, event: Focus) -> None:
-        if self.children and not self.index:
-            self.index = 0
-
-    def on_key(self, event: Key) -> None:
-        if event.key in ("up", "down"):
-            items = [i for i in self.children if i.display] 
-            if not items:
-                return
-
-            current = self.index or 0
-            if not self.children[current].display:
-                self.index = self.children.index(items[0])
-                return
-
-            if event.key == "down":
-                visible_next = next((i for i in items if self.children.index(i) > current), None)
-                if visible_next:
-                    self.index = self.children.index(visible_next)
-            elif event.key == "up":
-                visible_prev = next((i for i in reversed(items) if self.children.index(i) < current), None)
-                if visible_prev:
-                    self.index = self.children.index(visible_prev)
-
-            event.stop()
 
 class TopicListWidget(Container):
     """A widget to display the list of ROS topics."""
@@ -70,7 +43,7 @@ class TopicListWidget(Container):
     def __init__(self, ros_node: Node, **kwargs):
         super().__init__(**kwargs)
         self.ros_node = ros_node
-        self.listview = MyListView()
+        self.listview = CustomListView()
 
         ignore_file_path = os.path.join(os.path.dirname(__file__), '../../../config/display_ignore.yaml')
         self.ignore_parser = IgnoreParser(os.path.abspath(ignore_file_path))
@@ -148,6 +121,9 @@ class TopicListWidget(Container):
                 self.listview.index = max(0, len(self.listview.children) - 1)
 
     def on_list_view_highlighted(self, event):
+
+        self.app.focused_pane = "left"
+        self.app.current_pane_index = 1
 
         index = self.listview.index
         if index is None or not (0 <= index < len(self.listview.children)):

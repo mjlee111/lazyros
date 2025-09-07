@@ -118,6 +118,9 @@ class NodeListWidget(Container):
                     label.update(RichText.assemble(RichText("●", style="red"), "    ", RichText(dead_node)))
 
     def on_list_view_highlighted(self, event):
+        self.app.focused_pane = "left"
+        self.app.current_pane_index = 0
+
         index = self.listview.index
         if index is None or not (0 <= index < len(self.listview.children)):
             self.selected_node_name = None

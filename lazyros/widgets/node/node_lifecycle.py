@@ -63,13 +63,11 @@ class LifecycleWidget(Container):
         self.selected_node_data = None
         self.current_node_full_name = None
 
-
     def compose(self) -> ComposeResult:
         yield self.rich_log
         with Vertical(id="lifecycle-transitions"):
             yield Label("Available Lifecycle Transitions:")
             yield Horizontal(id="lifecycle-transition-buttons")
-            yield Static("Log shows here", id="lifecycle-transition-log")
 
     def on_mount(self) -> None:
         self.trans_section: Vertical = self.query_one("#lifecycle-transitions", Vertical)
