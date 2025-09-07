@@ -21,7 +21,7 @@ from lazyros.widgets.parameter.parameter_list import ParameterListWidget
 from lazyros.widgets.parameter.parameter_value import ParameterValueWidget
 from lazyros.widgets.parameter.parameter_info import ParameterInfoWidget
 
-from lazyros.utils.custom_widgets import SearchFooter
+from lazyros.utils.custom_widgets import SearchFooter, CustomHeader
 from lazyros.utils.utility import RosRunner
 
 
@@ -83,7 +83,17 @@ class LazyRosApp(App):
         self.ros_node = ros_runner.node
         assert self.ros_node is not None, "ROS node must be available before compose()"
 
+
+    def get_ros_info(self):
+        import os
+        ros_distro = os.environ.get("ROS_DISTRO", "unknown")
+        ros_domain = os.environ.get("ROS_DOMAIN_ID", "0")
+        dds_implementation = os.environ.get("RMW_IMPLEMENTATION", "unknown")
+        title = f"ROS_DISTRO={ros_distro}  |  ROS_DOMAIN_ID={ros_domain}  |  DDS_IMPLEMENTATION={dds_implementation}"
+        return title
+
     def on_mount(self) -> None:
+        self.screen.title = self.get_ros_info()
         node_list_widget = self.query_one("#node-listview")
         node_list_widget.listview.focus()
         self.right_pane = self.query_one("#right-pane")
@@ -123,7 +133,8 @@ class LazyRosApp(App):
             event.stop()
 
     def compose(self) -> ComposeResult:
-        yield Header()
+
+        yield Header(icon="", id="header")
 
         with Horizontal():
             with Container(classes="left-pane", id="left-pane"):

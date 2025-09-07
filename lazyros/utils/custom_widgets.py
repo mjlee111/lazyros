@@ -1,10 +1,11 @@
+import os
 from textual.events import Focus, Key
 from textual.widgets import (
     ListView,
     RichLog
 )
 from textual.binding import Binding
-from textual.widgets import Footer, Static
+from textual.widgets import Header, Footer, Static
 from textual.reactive import Reactive
 
 
@@ -118,3 +119,12 @@ class SearchFooter(Footer):
             else:
                 return
         event.stop()
+
+
+class CustomHeader(Header):
+    def __init__(self, **kwargs):
+        ros_distro = os.environ.get("ROS_DISTRO", "unknown")
+        ros_domain = os.environ.get("ROS_DOMAIN_ID", "0")
+        dds_implementation = os.environ.get("RMW_IMPLEMENTATION", "unknown")
+        title = f"LazyROS  |  ROS_DISTRO={ros_distro}  |  ROS_DOMAIN_ID={ros_domain}  |  DDS_IMPLEMENTATION={dds_implementation}"
+        super().__init__(show_clock=True, **kwargs)

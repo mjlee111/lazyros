@@ -59,3 +59,8 @@ TabbedContent Tabs .-active {
 .hidden {
     display: none;
 }
+
+HeaderTitle {
+    content-align: right middle;
+    width: 100%;
+}
