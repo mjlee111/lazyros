@@ -1,38 +1,27 @@
-import subprocess
-import asyncio
+import os
+from dataclasses import dataclass
 from rclpy.node import Node
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Container
 from textual.widgets import Label, ListItem, ListView
+from textual.events import Focus, Key
 from rich.markup import escape
 from rich.text import Text as RichText
-from dataclasses import dataclass
-
 from lazyros.utils.ignore_parser import IgnoreParser
-from lazyros.modals.lifecycle_modal import LifecycleModal
+from lazyros.utils.utility import create_css_id
+from lazyros.utils.custom_widgets import CustomListView
 
-import os
-import signal
-
-from textual.events import Focus
-import re
 
 def escape_markup(text: str) -> str:
     return escape(text)
 
-
-class MyListView(ListView):
-    """Custom ListView that automatically focuses on mount."""
-
-    def on_focus(self, event: Focus) -> None:
-        if self.children and not self.index:
-            self.index = 0
-
+            
 @dataclass
 class NodeData:
     full_name: str
     status: str
+    index: int
     namespace: str = ""
     node_name: str = ""
 
@@ -40,7 +29,7 @@ class NodeListWidget(Container):
     def __init__(self, ros_node: Node, ignore_file_path='config/display_ignore.yaml', **kwargs) -> None:
         super().__init__(**kwargs)
         self.ros_node = ros_node
-        self.listview = MyListView()
+        self.listview = CustomListView()
         self.node_listview_dict = {}
         self.searching = False
         
@@ -52,8 +41,7 @@ class NodeListWidget(Container):
         yield self.listview
 
     def on_mount(self) -> None:
-        asyncio.create_task(self.update_node_list())
-        self.set_interval(0.1, lambda: asyncio.create_task(self.update_node_list()))
+        self.set_interval(1, self.update_node_list)
 
         if self.listview.children:
             self.listview.index = 0
@@ -66,17 +54,31 @@ class NodeListWidget(Container):
 
         if self.searching:
             if self.screen.focused == self.app.query_one("#footer"):
-                self.listview.clear()
                 footer = self.app.query_one("#footer")
-                query = footer.input
-                node_list = self.apply_search_filter(query)
-                self.listview.extend(node_list)
+                query = footer.search_input
 
+                node_list = self.apply_search_filter(query)
+                visible = set(node_list)
+                hidden = set(self.node_listview_dict.keys()) - visible
+
+                searching_index = len(self.node_listview_dict.keys()) + 1
+                for n in visible:
+                    index = self.node_listview_dict[n].index
+                    item = self.listview.children[index]
+                    item.display=True
+
+                    if index < searching_index:
+                        searching_index = index
+
+                self.listview.index = searching_index
+
+                for n in hidden:
+                    index = self.node_listview_dict[n].index
+                    item = self.listview.children[index]
+                    item.display=False
         else:
-            self.log(f"{self.node_listview_dict.keys()}")
             nodes_and_namespaces = self.ros_node.get_node_names_and_namespaces()
             launched_node_set =list(self.node_listview_dict.keys())
-            need_update = False
 
             for tuple in nodes_and_namespaces:
                 node = tuple[0]
@@ -90,52 +92,35 @@ class NodeListWidget(Container):
                     continue
 
                 if node_name not in launched_node_set:
-                    need_update = True
-                    # If the node is not in the launched nodes, add it
-                    self.node_listview_dict[node_name] = NodeData(full_name=node_name, status="green", namespace=namespace, node_name=node)
+                        index = len(self.listview.children)
+                        self.listview.extend([ListItem(Label(RichText.assemble(RichText("●", style="bold green"), "    ", RichText(node_name))))])
+                        self.node_listview_dict[node_name] = NodeData(full_name=node_name, status="green", index=index, namespace=namespace, node_name=node)
                 else:
+                    index = self.node_listview_dict[node_name].index
+                    if not self.listview.children[index].display:
+                        self.listview.children[index].display = True
+
                     if self.node_listview_dict[node_name].status != "green":
-                        need_update = True
                         self.node_listview_dict[node_name].status = "green"
+                        index = self.node_listview_dict[node_name].index
+                        item = self.listview.children[index]
+                        label = item.query_one(Label)
+                        label.update(RichText.assemble(RichText("●", style="bold green"), "    ", RichText(node_name)))
                     launched_node_set.remove(node_name)
-           
+
             # Set nodes that are no longer launched to red
             for dead_node in launched_node_set:
                 if self.node_listview_dict[dead_node].status == "green":
                     self.node_listview_dict[dead_node].status = "red"
-                    self.log(f"here3")
-                    need_update = True
-    
-            if len(self.listview.children) != len(self.node_listview_dict.keys()):
-                need_update = True
-
-            if not need_update:
-                return
-                    
-            nodes_list = list(self.node_listview_dict.keys())
-            sorted_nodes = sorted(nodes_list)
-              
-            # update node listview 
-            self.listview.clear()
-            nodes = []
-            for node in sorted_nodes:
-                status = self.node_listview_dict[node].status
-                label = RichText.assemble(
-                   RichText("●", style=f"bold {status}"),
-                   "    ",
-                   RichText(node)
-                )
-                nodes.append(ListItem(Label(label)))
-                 
-            self.listview.extend(nodes)
-
-                #current_index = self.listview.index
-                #if current_index is not None and current_index < len(nodes):
-                #    self.listview.index = current_index
-                #elif nodes:
-                #    self.listview.index = 0
+                    index = self.node_listview_dict[dead_node].index
+                    item = self.listview.children[index]
+                    label = item.query_one(Label)
+                    label.update(RichText.assemble(RichText("●", style="red"), "    ", RichText(dead_node)))
 
     def on_list_view_highlighted(self, event):
+        self.app.focused_pane = "left"
+        self.app.current_pane_index = 0
+
         index = self.listview.index
         if index is None or not (0 <= index < len(self.listview.children)):
             self.selected_node_name = None
@@ -159,14 +144,4 @@ class NodeListWidget(Container):
             names = [n for n in list(self.node_listview_dict.keys()) if query in n.lower()]
         else:
             names = list(self.node_listview_dict.keys())
-
-        filtered_nodes = []
-        for n in names:
-            status = self.node_listview_dict[n].status
-            label = RichText.assemble(
-                RichText("●", style=f"bold {status}"),
-                "    ",
-                RichText(n)
-            )
-            filtered_nodes.append(ListItem(Label(label)))
-        return filtered_nodes
+        return names

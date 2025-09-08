@@ -39,6 +39,7 @@ class IgnoreParser:
 
     def _glob_to_regex(self, glob_pattern):
         """Converts a glob pattern to a regex pattern."""
+
         regex = re.escape(glob_pattern)
         regex = regex.replace(r'\*', '.*')
         regex = regex.replace(r'\?', '.')

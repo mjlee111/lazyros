@@ -9,7 +9,6 @@ from textual.containers import Container
 from textual.widgets import (
     Label,
     ListItem,
-    ListView,
 )
 from rich.markup import escape
 
@@ -18,21 +17,14 @@ from rcl_interfaces.srv import ListParameters
 
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rich.text import Text as RichText
-from textual.events import Focus
+
+from lazyros.utils.utility import create_css_id
+from lazyros.utils.custom_widgets import CustomListView 
+
 
 def escape_markup(text: str) -> str:
     """Escape text for rich markup."""
     return escape(text)
-
-
-class MyListView(ListView):
-    """Custom ListView that automatically focuses on mount."""
-
-    def on_focus(self, event: Focus) -> None:
-        self.log("focus")
-        if self.children and not self.index:
-            self.index = 0
-
 
 class ParameterListWidget(Container):
     """A widget to display the list of ROS parameters."""
@@ -52,7 +44,7 @@ class ParameterListWidget(Container):
     def __init__(self, ros_node: Node, **kwargs) -> None:
         super().__init__(**kwargs)
         self.ros_node = ros_node
-        self.listview = MyListView()
+        self.listview = CustomListView()
 
         ignore_file_path = os.path.join(os.path.dirname(__file__), '../../../config/display_ignore.yaml')
         self.ignore_parser = IgnoreParser(os.path.abspath(ignore_file_path))
@@ -63,13 +55,13 @@ class ParameterListWidget(Container):
         self.list_for_search = []
 
         self.searching = False
+        self._prev_searching = False
 
     def compose(self) -> ComposeResult:
         yield self.listview
 
     def on_mount(self) -> None:
-        asyncio.create_task(self.update_parameter_list())
-        self.set_interval(0.1, lambda: asyncio.create_task(self.update_parameter_list()))
+        self.set_interval(1, self.update_parameter_list)
         if self.listview.children:
             self.listview.index = 0
 
@@ -86,59 +78,77 @@ class ParameterListWidget(Container):
         return result.names
 
     async def update_parameter_list(self):
-        if not self.listview.index and not self.searching:
-            self.listview.index = 0
-
         if self.searching:
+            self._prev_searching = True
             if self.screen.focused == self.app.query_one("#footer"):
-                self.listview.clear()
                 footer = self.app.query_one("#footer")
-                query = footer.input
+                query = footer.search_input
                 param_list = self.apply_search_filter(query)
-                self.listview.extend(param_list)
+                visible = set(param_list)
+                hidden = set(self.list_for_search) - visible
+                searching_index = len(self.list_for_search) + 1
+                for n in visible:
+                    css_id = create_css_id(n)
+                    item = self.listview.query(f"#{css_id}").first()
+                    if item:
+                        item.display=True
+                    index = self.listview.children.index(item) if item else None
+                    if index is not None and index < searching_index:
+                        searching_index = index
+                self.listview.index = searching_index
 
+                for n in hidden:
+                    css_id = create_css_id(n)
+                    item = self.listview.query(f"#{css_id}").first()
+                    if item:
+                        item.display=False
         else:
             self.node_listview = self.app.query_one("#node-listview")
-
-            need_update = False 
             node_list = list(self.node_listview.node_listview_dict.keys())
             for node in node_list:
-                if node not in self.parameter_dict:
-                    need_update = True
-                    parameters = self.list_parameters(node)
-                    if parameters:
-                        self.parameter_dict[node] = parameters
+                node_status = self.node_listview.node_listview_dict[node].status
+                if node_status == "green" and node not in self.parameter_dict:
+                    parameters = await asyncio.to_thread(self.list_parameters, node)
+                    if not parameters:
+                        return
+                    self.parameter_dict[node] = []
+                    for parameter in parameters:
+                        label = RichText.assemble(
+                            RichText(node),
+                            ": ",
+                            RichText(parameter)
+                        )
+                        should_ignore = self.ignore_parser.should_ignore(str(label), 'parameter')
+                        if not should_ignore:
+                            css_id = create_css_id(f"{node}-{parameter}") 
+                            self.listview.extend([ListItem(Label(label), id=css_id)])
+                            self.list_for_search.append(f"{node}-{parameter}")
+                            self.parameter_dict[node].append(parameter)
 
-                #elif self.node_listview.node_listview_dict[node].status != "green":
-                #    self.parameter_dict.pop(node)
-                #    need_update = True 
+                elif node in self.parameter_dict and node_status != "green":
+                    for parameter in self.parameter_dict[node]:
+                        css_id = create_css_id(f"{node}-{parameter}")
+                        match = self.listview.query(f"#{css_id}")
+                        if match:
+                            match.remove()
+                            self.list_for_search.remove(f"{node}-{parameter}")
+                    self.parameter_dict.pop(node)
 
-            if len(self.listview.children) != len(self.list_for_search):
-                need_update = True
+                elif self._prev_searching:
+                    for parameter in self.parameter_dict[node]:
+                        css_id = create_css_id(f"{node}-{parameter}")
+                        match = self.listview.query(f"#{css_id}").first()
+                        if match:
+                            match.display = True
 
-            if not need_update:
-                return
-
-            # update parameter listview
-            self.listview.clear()
-            parameter_list = []
-            self.list_for_search = []
-            node_list = list(self.parameter_dict.keys())
-            for node in node_list:
-                for parameter in self.parameter_dict[node]:
-                    label = RichText.assemble(
-                        RichText(node),
-                        ": ",
-                        RichText(parameter)
-                    )
-                    should_ignore = self.ignore_parser.should_ignore(str(label), 'parameter')
-                    if not should_ignore:
-                        parameter_list.append(ListItem(Label(label)))
-                        self.list_for_search.append(f"{node}: {parameter}")
-
-            self.listview.extend(parameter_list)
+                if self.listview.index and self.listview.index >= len(self.listview.children):
+                    self.listview.index = max(0, len(self.listview.children) - 1)
+    
+            self._prev_searching = False
 
     def on_list_view_highlighted(self, event):
+        self.app.current_pane_index = 2
+        self.app.focused_pane = "left"
 
         index = self.listview.index
         if index is None or not (0 <= index < len(self.listview.children)):
@@ -158,9 +168,5 @@ class ParameterListWidget(Container):
         if query:
             names = [n for n in self.list_for_search if query in n.lower()]
         else:
-            names = self.list_for_search 
-
-        filtered_parameters = []
-        for n in names:
-            filtered_parameters.append(ListItem(Label(RichText.assemble(RichText(n)))))
-        return filtered_parameters
+            names = self.list_for_search
+        return names

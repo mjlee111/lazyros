@@ -105,7 +105,8 @@ class LogViewWidget(Container):
             self.logs_by_node[msg.name] = []
         self.logs_by_node[msg.name].append(formatted_log)
             
-    def display_logs(self):
+    async def display_logs(self):
+
         """Display logs for the currently selected node. """
 
         node_listview = self.app.query_one("#node-listview")

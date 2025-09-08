@@ -1,79 +1,66 @@
-/* Basic screen layout */
-/* Container for the two panes */
 Horizontal {
     height: 1fr;
 }
 
-/* Common frame styling */
-#left-frame, #right-frame {
-    width: 1fr; /* Share width equally initially */
-    padding: 0 1; /* Add padding inside frames */
-    /* Use vertical layout for title and content */
+TabbedContent Tabs .underline--bar {
+    color: transparent;
 }
 
-/* Specific width for left frame */
-#left-frame {
-    width: 30%; /* 3 parts */
+TabbedContent Tabs .-active {
+    color: green;
 }
 
-/* Specific width for right frame */
-#right-frame {
-    width: 70%; /* 7 parts */
-    border: round white; /* Thin white border */
+#left-pane, #right-pane {
+    width: 1fr;
+    padding: 0 1;
 }
 
-/* Style for the frame titles */
-.frame-title {
-    text-align: center; /* Center text within the Static widget */
-    width: 100%; /* Take full width of the frame */
+#left-pane {
+    width: 30%;
 }
 
-/* Style for the content area within the frames */
-#node-listview, 
-#topic-listview
-#parameter-listview,
-#log-view-content
+#right-pane {
+    width: 70%;
+    border: round white;
+    border-title-align: left;
+}
+
+#right-pane.-active{
+    border: round green;
+}
+
+#node-container,
+#topic-container,
+#parameter-container
 {
+    border: round white;
+    border-title-align: left;
+}
+
+#node-container.-active,
+#topic-container.-active,
+#parameter-container.-active 
+{
+    border: round green;
+}
+
+.list-view ListView, .view-content RichLog {
     border: none;
-    height: 1.2fr; /* Take remaining space in the frame */
-    overflow-y: auto; /* Allow scrolling if content overflows */
-}
-
-#node-listview ListView {
-    border: none;
-    background: transparent; /* Ensure no background color */
-}
-
-
-#topic-listview ListView {
-    border: none;
-    background: transparent; /* Ensure no background color */
-}
-
-#parameter-listview ListView {
-    border: none;
-    background: transparent; /* Ensure no background color */
-}
-
-/* Adjust label inside node list content */
-#node-listview Label {
-    margin-bottom: 0;
-}
-
-/* Style the RichLog within the log view */
-#log-view-content RichLog {
-    border: none; /* Ensure no extra borders */
+    height: 1.2fr;
+    overflow-y: auto;
     background: transparent;
 }
 
-/* Style for the containers around each list and its title */
 .list-container {
-    border:round white; /* Thin white border */
-    height: 1fr; /* Allow containers to share vertical space */
+    border:round white;
+    height: 1fr;
 }
 
-/* Hidden class for switching between tab configurations */
 .hidden {
     display: none;
 }
 
+HeaderTitle {
+    content-align: right middle;
+    width: 100%;
+}

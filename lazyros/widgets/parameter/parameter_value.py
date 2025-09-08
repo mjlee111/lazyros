@@ -13,6 +13,9 @@ import rclpy
 from rcl_interfaces.msg import ParameterType
 
 from rclpy.callback_groups import ReentrantCallbackGroup
+from textual.widgets import Static
+import asyncio
+from rich.text import Text
 
 
 PARAMETER_TYPE_MAP = {
@@ -55,31 +58,31 @@ class ParameterValueWidget(Container):
         self.current_parameter = None
         self.selected_parameter = None
 
-        #self.ros_node.create_timer(1, self.update_display, callback_group=ReentrantCallbackGroup())
-
     def compose(self) -> ComposeResult:
-        yield self.rich_log
-
+        yield Static("", id="parameter-value")
 
     def on_mount(self):
         self.set_interval(1, self.update_display)
 
-    def update_display(self):
+    async def update_display(self):
+
         self.listview_widget = self.app.query_one("#parameter-listview")
         self.selected_parameter = self.listview_widget.selected_param if self.listview_widget else None
 
+        view = self.query_one("#parameter-value", Static)
+
         if not self.selected_parameter:
-            self.rich_log.clear()
-            self.rich_log.write("[red]No parameter is selected yet.[/]")
+            view.update("[red]No parameter is selected yet.[/]")
             return
 
         if self.selected_parameter == self.current_parameter:
             return
 
         self.current_parameter = self.selected_parameter
-        self.rich_log.clear()
-        value_lines = self.show_param_value()
-        self.rich_log.write("\n".join(value_lines))
+        value_lines = await asyncio.to_thread(self.show_param_value)
+        if value_lines:
+            view.update("\n".join(value_lines))
+
 
     def show_param_value(self):
         match = re.fullmatch(r"([^:]+):\s*(.+)", self.current_parameter)

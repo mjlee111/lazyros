@@ -1,18 +1,12 @@
-import threading
+import signal
+import atexit
 
-import rclpy
-from rclpy.node import Node
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical, ScrollableContainer
-from textual.widgets import (
-    Footer,
-    Header,
-    Static,
-    TabbedContent,
-    TabPane,
-    ListView,
-)
+from textual.widgets import Header, Static, TabbedContent, TabPane
+from textual.reactive import reactive
+from textual.screen import ModalScreen
 
 from lazyros.widgets.node.node_list import NodeListWidget
 from lazyros.widgets.node.node_log import LogViewWidget
@@ -27,102 +21,104 @@ from lazyros.widgets.parameter.parameter_list import ParameterListWidget
 from lazyros.widgets.parameter.parameter_value import ParameterValueWidget
 from lazyros.widgets.parameter.parameter_info import ParameterInfoWidget
 
-from textual.screen import ModalScreen
-from lazyros.search import SearchFooter
-from textual.events import Action
+from lazyros.utils.custom_widgets import SearchFooter, CustomHeader
+from lazyros.utils.utility import RosRunner
 
+
+ros_runner = RosRunner()
+atexit.register(ros_runner.stop)
 
 class HelpModal(ModalScreen):
     CSS = """
-    HelpModal {
-        align: center middle;
-        layer: modal;
-    }
-    
+    HelpModal { align: center middle; layer: modal; }
     #modal-container {
-        width: auto;
-        height: auto;
+        width: auto; height: auto;
         border: round white;
         background: $background;
     }
     """
-    
-    BINDINGS = [
-        Binding("escape", "dismiss", "Quit Modal")
-    ]
-    
+    BINDINGS = [Binding("escape", "dismiss", "Quit Modal", priority=True)]
+
     def compose(self):
         help_text = (
             "Help Menu\n"
             "\n"
             "enter        Focus right window\n"
-            "\[            Previous Tab\n"
+            "[            Previous Tab\n"
             "]            Next Tab\n"
             "tab          Focus next container\n"
             "shift+tab    Focus previous container"
         )
-
         yield Static(help_text, id="modal-container")
 
+
+# ===================== Textual App =====================
 class LazyRosApp(App):
     """A Textual app to monitor ROS information."""
+    CSS_PATH = "lazyros.css"
 
     BINDINGS = [
-        Binding("q", "quit", "Quit", show=True, priority=True),
+        Binding("ctrl+q", "quit", "Quit", show=True, priority=True),
         Binding("?", "help", "Help", show=True),
-        Binding("/", "search", "Search", show=False)
+        Binding("/", "search", "Search", show=False),
+        Binding("tab", "focus_next_listview", "Focus Next ListView", show=False, priority=True),
+        Binding("shift+tab", "focus_previous_listview", "Focus Previous ListView", show=False, priority=True),
     ]
 
-    CSS_PATH = "lazyros.css"
-    
-    NODE_TAB_ID_LIST = ["log", "info"]
-    TOPIC_TAB_ID_LIST = ["echo", "info"]
-    PARAMETER_TAB_ID_LIST = ["value", "info"]
-
+    LISTVIEW_CONTAINERS = ["node", "topic", "parameter"]
     TAB_ID_DICT = {
         "node": ["log", "lifecycle", "info"],
         "topic": ["echo", "info"],
         "parameter": ["value", "info"],
     }
 
-    def __init__(self, ros_node: Node):
-        super().__init__()
-        self.ros_node = ros_node
+    focused_pane = reactive("left")
+    current_pane_index = reactive(0)
 
-        self.left_pane_widgets = [
-            "#node-listview",
-            "#topic-listview", 
-            "#parameter-listview"
-        ]
-        self._left_containers = ["node", "topic", "parameter"]
-        self.current_pane_index = 0
-        self.current_right_pane_config = "node"
-        self.current_selected_topic = None
-        self._topic_update_timer = None
-        self.focused_pane = "left"
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+        self._searching = False
+        ros_runner.start()
+        self.ros_node = ros_runner.node
+        assert self.ros_node is not None, "ROS node must be available before compose()"
+
+
+    def get_ros_info(self):
+        import os
+        ros_distro = os.environ.get("ROS_DISTRO", "unknown")
+        ros_domain = os.environ.get("ROS_DOMAIN_ID", "0")
+        dds_implementation = os.environ.get("RMW_IMPLEMENTATION", "unknown")
+        title = f"ROS_DISTRO={ros_distro}  |  ROS_DOMAIN_ID={ros_domain}  |  DDS_IMPLEMENTATION={dds_implementation}"
+        return title
 
     def on_mount(self) -> None:
-        """Called when app is mounted. Perform async setup here."""
-
+        self.screen.title = self.get_ros_info()
         node_list_widget = self.query_one("#node-listview")
-        if node_list_widget:
-            node_list_widget.listview.focus()
+        node_list_widget.listview.focus()
+        self.right_pane = self.query_one("#right-pane")
 
+    def on_shutdown(self, _event) -> None:
+        ros_runner.stop()
+
+    def on_mouse_down(self, event) -> None:
+        from lazyros.utils.custom_widgets import CustomListView, SearchFooter
+        focus_type = type(self.screen.focused)
+        focus = self.screen.focused
+        self.log(f"Focused: {focus} ({focus_type})")
+
+        if focus_type is CustomListView:
+            return
+        elif focus_type is SearchFooter:
+            return
+        else:
+            self.focused_pane = "right"
+        
     def on_key(self, event) -> None:
-        """Handle key events, override default tab behavior."""
 
-        if event.key == "tab" and self.screen.focused == self.query_one(SearchFooter):
-            self.deactive_search()
-
-        if event.key == "tab":
-            self.action_focus_next_listview()
-            event.stop()
-        elif event.key == "shift+tab":
-            self.action_focus_previous_listview()
-            event.stop()
-        elif event.key == "enter":
-            if self.screen.focused == self.query_one(SearchFooter):
-                self.deactive_search(restore_focus=True, escape_searching=False)
+        if event.key == "enter":
+            if self._searching:
+                self.focus_searched_listview()
             else:
                 self.action_focus_right_pane()
             event.stop()
@@ -132,206 +128,186 @@ class LazyRosApp(App):
         elif event.character == "]":
             self.action_next_tab()
             event.stop()
-        elif event.key == "escape":
-            self.deactive_search(restore_focus=True)
+        elif event.key == "escape" and self._searching:
+            self.end_search()
             event.stop()
 
     def compose(self) -> ComposeResult:
-        """Create child widgets for the app."""
 
-        yield Header()
+        yield Header(icon="", id="header")
 
         with Horizontal():
-            with Container(classes="left-pane", id="left-frame"):
+            with Container(classes="left-pane", id="left-pane"):
                 with Vertical():
-                    with ScrollableContainer(classes="list-container", id="node-container"):
-                        yield Static("Nodes", classes="frame-title")
-                        yield NodeListWidget(self.ros_node, id="node-listview")
-                    with ScrollableContainer(classes="list-container", id="topic-container"):
-                        yield Static("Topics", classes="frame-title")
-                        yield TopicListWidget(self.ros_node, id="topic-listview")
-                    with ScrollableContainer(classes="list-container", id="parameter-container"):
-                        yield Static("Parameters", classes="frame-title")
-                        yield ParameterListWidget(self.ros_node, id="parameter-listview")
+                    node_container = ScrollableContainer(classes="list-container", id="node-container")
+                    node_container.border_title = "Nodes"
+                    with node_container:
+                        yield NodeListWidget(self.ros_node, classes="list-view", id="node-listview")
 
-            with Container(classes="right-pane", id="right-frame"):
+                    topic_container = ScrollableContainer(classes="list-container", id="topic-container")
+                    topic_container.border_title = "Topics"
+                    with topic_container:
+                        yield TopicListWidget(self.ros_node, classes="list-view", id="topic-listview")
+
+                    parameter_container = ScrollableContainer(classes="list-container", id="parameter-container")
+                    parameter_container.border_title = "Parameters"
+                    with parameter_container:
+                        yield ParameterListWidget(self.ros_node, classes="list-view", id="parameter-listview")
+
+            container = Container(classes="right-pane", id="right-pane")
+            with container:
                 with TabbedContent("Log", "Lifecycle", "Info", id="node-tabs"):
                     with TabPane("Log", id="log"):
-                        yield LogViewWidget(self.ros_node, id="node-log-view-content")
+                        yield LogViewWidget(self.ros_node, classes="view-content", id="node-log-view-content")
                     with TabPane("Lifecycle", id="lifecycle"):
-                        yield LifecycleWidget(self.ros_node, id="node-lifecycle-view-content")
+                        yield LifecycleWidget(self.ros_node, classes="view-content", id="node-lifecycle-view-content")
                     with TabPane("Info", id="info"):
-                        yield InfoViewWidget(self.ros_node, id="node-info-view-content")
+                        yield InfoViewWidget(self.ros_node, classes="view-content", id="node-info-view-content")
+
                 with TabbedContent("Info", "Echo", id="topic-tabs", classes="hidden"):
                     with TabPane("Echo", id="echo"):
-                        yield EchoViewWidget(self.ros_node, id="topic-echo-view-content")
+                        yield EchoViewWidget(self.ros_node, classes="view-content", id="topic-echo-view-content")
                     with TabPane("Info", id="info"):
-                        yield TopicInfoWidget(self.ros_node, id="topic-info-view-content")
+                        yield TopicInfoWidget(self.ros_node, classes="view-content", id="topic-info-view-content")
+
                 with TabbedContent("Info", "Value", id="parameter-tabs", classes="hidden"):
                     with TabPane("Value", id="value"):
-                        yield ParameterValueWidget(self.ros_node, id="parameter-value-view-content")
+                        yield ParameterValueWidget(self.ros_node, classes="view-content", id="parameter-value-view-content")
                     with TabPane("Info", id="info"):
-                        yield ParameterInfoWidget(self.ros_node, id="parameter-info-view-content")
+                        yield ParameterInfoWidget(self.ros_node, classes="view-content", id="parameter-info-view-content")
 
-        yield SearchFooter(id="footer")
+        self.footer = SearchFooter(id="footer")
+        yield self.footer 
 
-    # keybindings for actions
+    # ========= actions =========
 
+    def action_search(self):
+        self._searching = True 
+        searching_listview = self.LISTVIEW_CONTAINERS[self.current_pane_index] + "-listview"
+        self.footer.searching_id = searching_listview
+        listview = self.query_one(f"#{searching_listview}")
+        listview.searching = True
 
-    def deactive_search(self, restore_focus=False, escape_searching=True) -> None:
-        footer = self.query_one(SearchFooter)
-        if escape_searching:
-            footer.exit_search()
-            self.screen.focus(None)
+        self.footer.enter_search()
+        self.set_focus(self.footer)
 
-        if restore_focus:
-            widget_id = footer.searching_id
-            widget = self.query_one(f'#{widget_id}')
-            widget.searching = not escape_searching 
-            widget.listview.focus()
+    def focus_searched_listview(self):
+        listview_id = self.footer.searching_id
+        if listview_id:
+            listview = self.query_one(f"#{listview_id}")
+            listview.listview.focus()
+        
+    def end_search(self):
+        self.footer.exit_search()
+        self.screen.focus(None)
 
-        footer.refresh(layout=True)
-        self.refresh(layout=True)
+        listview_id = self.footer.searching_id
+        if listview_id:
+            listview = self.query_one(f"#{listview_id}")
+            listview.searching = False
+            listview.listview.focus()
+            listview.listview.index = 0
 
-    def action_search(self) -> None:
-        footer = self.query_one(SearchFooter)
-        focused = self.screen.focused
-        #if type(focused) != ListView:
-        #    self.log(f"Focused widget is not a ListView: {type(focused)}")
-        #    return
+        self._searching = False
 
-        widget_id = f"{self._left_containers[self.current_pane_index]}-listview"  
-        footer.searching_id = widget_id
-        widget = self.query_one(f'#{widget_id}')
-        widget.searching = True
-
-        footer.enter_search()
-        self.set_focus(footer)
-        footer.refresh(layout=True)
+        self.footer.refresh(layout=True)
         self.refresh(layout=True)
 
     def action_help(self):
-        """Show the help modal."""
-
         self.push_screen(HelpModal())
 
     def action_focus_right_pane(self) -> None:
-        """Focus the right pane and highlight it."""
-
         self.focused_pane = "right"
-        self._reset_frame_highlight()
-        self._focus_right_pane_tab()
-
-    def action_focus_left_pane(self) -> None:
-        """Focus the left pane and highlight it."""
-
-        self.focused_pane = "left"
-        self._reset_frame_highlight()
-        self._focus_current_listview()
 
     def action_focus_next_listview(self) -> None:
+        if self._searching:
+            self.end_search()
+            return
 
         if self.focused_pane == "right":
-            self.action_focus_left_pane()
+            self.focused_pane = "left"
         else:
-            self.current_pane_index = (self.current_pane_index + 1) % len(self.left_pane_widgets)
-            self._focus_current_listview()
+            self.current_pane_index = (self.current_pane_index + 1) % len(self.LISTVIEW_CONTAINERS)
 
     def action_focus_previous_listview(self) -> None:
+        if self._searching:
+            self.end_search()
+            return
 
         if self.focused_pane == "right":
-            self.action_focus_left_pane()
+            self.focused_pane = "left"
         else:
-            self.current_pane_index = (self.current_pane_index - 1) % len(self.left_pane_widgets)
-            self._focus_current_listview()
+            self.current_pane_index = (self.current_pane_index - 1) % len(self.LISTVIEW_CONTAINERS)
+
+    # ========= helpers =========
+    def _focus_right_pane(self):
+        current_listview = self.LISTVIEW_CONTAINERS[self.current_pane_index]
+        tabs = self.query_one(f"#{current_listview}-tabs")
+        widget = self.query_one(f"#{current_listview}-{tabs.active}-view-content")
+        if hasattr(widget, "rich_log"):
+            widget.rich_log.focus()
+
+    def _focus_listview(self):
+        current_listview = self.LISTVIEW_CONTAINERS[self.current_pane_index]
+        self.query_one(f"#{current_listview}-listview").listview.focus()
+
+    def _set_active_pane(self, widget, active: bool) -> None:
+        widget.set_class(active, "-active")
 
     def _reset_frame_highlight(self) -> None:
-        """Reset the visual style of the left and right panes."""
-        
-        right_pane: Container = self.query_one("#right-frame")
-        
-        if self.focused_pane == "right":
-            right_pane.styles.border = ("round", "green")
-            listview_container_widget = self.query_one(f'#{self._left_containers[self.current_pane_index]}-container')
-            listview_container_widget.styles.border = ("round", "white")
-        else:
-            right_pane.styles.border = ("round", "white")
-            for name in self._left_containers:
-                widget = self.query_one(f'#{name}-container')
-                if name == self._left_containers[self.current_pane_index]:
-                    widget.styles.border = ("round", "green")
-                else:
-                    widget.styles.border = ("round", "white")
-
-    def _focus_right_pane_tab(self):
-        """Focus the right pane tab based on the current configuration."""
-
-        left_container = self._left_containers[self.current_pane_index]
-        tabs = self.query_one(f'#{left_container}-tabs')
-
-        self.query_one(f'#{left_container}-{tabs.active}-view-content').rich_log.focus()
-
-    def _focus_left_pane_listview(self):
-        """Focus the left pane listview based on the current configuration."""
-        
-        focused_listview = self._left_containers[self.current_pane_index]        
-        self.query_one(f'#{focused_listview}-listview').listview.focus()
-
-    def _focus_current_listview(self) -> None:
-        """Focus the current listview based on current_pane_index."""
-
-        self._reset_frame_highlight()
-        self._focus_left_pane_listview()
-        self._update_right_pane()    
+        right_active = (self.focused_pane == "right")
+        self._set_active_pane(self.query_one("#right-pane"), right_active)
+        active_index = self.current_pane_index if not right_active else -1
+        for i, name in enumerate(self.LISTVIEW_CONTAINERS):
+            w = self.query_one(f"#{name}-container")
+            self._set_active_pane(w, i == active_index)
 
     def _update_right_pane(self) -> None:
-        current_listview = self._left_containers[self.current_pane_index]
-        
-        for i in self._left_containers:
-            if i == current_listview:
-                self.query_one(f'#{i}-tabs').remove_class("hidden")
-                self.current_right_pane_config = i
-            else:
-                self.query_one(f'#{i}-tabs').add_class("hidden")   
+        current_listview = self.LISTVIEW_CONTAINERS[self.current_pane_index]
+        for name in self.LISTVIEW_CONTAINERS:
+            tabs = self.query_one(f"#{name}-tabs")
+            tabs.set_class(name != current_listview, "hidden")
 
-    def action_previous_tab(self):
-        """Focus the right pane tab based on the current configuration."""
-        
-        current_listview = self._left_containers[self.current_pane_index]
-        tabs = self.query_one(f'#{current_listview}-tabs')
-        current_tab = tabs.active
+    def watch_focused_pane(self, _value) -> None:
+        self._reset_frame_highlight()
+        self._focus_listview() if self.focused_pane == "left" else self._focus_right_pane()
 
-        if self.TAB_ID_DICT[current_listview][0] == current_tab:
-            return
-        for i in self.TAB_ID_DICT[current_listview][1:]:
-            if current_tab == i:
-                tabs.active = self.TAB_ID_DICT[current_listview][self.TAB_ID_DICT[current_listview].index(i) - 1]
-                break
-        self.query_one(f'#{current_listview}-{tabs.active}-view-content').rich_log.focus()
+    def watch_current_pane_index(self, _value) -> None:
+        self._reset_frame_highlight()
+        self._focus_listview()
+        self._update_right_pane()
 
-    def action_next_tab(self):
-        """Focus the right pane tab based on the current configuration."""
+    def action_previous_tab(self) -> None:
+        self._shift_tab(-1)
 
-        current_listview = self._left_containers[self.current_pane_index]
-        tabs = self.query_one(f'#{current_listview}-tabs')
-        current_tab = tabs.active
-        
-        if self.TAB_ID_DICT[current_listview][-1] == current_tab:
-            return
-        for i in self.TAB_ID_DICT[current_listview][:-1]:
-            if current_tab == i:
-                tabs.active = self.TAB_ID_DICT[current_listview][self.TAB_ID_DICT[current_listview].index(i) + 1]
-                break
-        self.query_one(f'#{current_listview}-{tabs.active}-view-content').rich_log.focus()
+    def action_next_tab(self) -> None:
+        self._shift_tab(+1)
+
+    def _shift_tab(self, delta: int) -> None:
+        current_listview = self.LISTVIEW_CONTAINERS[self.current_pane_index]
+        tabs = self.query_one(f"#{current_listview}-tabs")
+        tab_ids = self.TAB_ID_DICT[current_listview]
+        try:
+            idx = tab_ids.index(tabs.active)
+        except ValueError:
+            idx = 0
+        new_idx = idx + delta
+        if 0 <= new_idx < len(tab_ids):
+            tabs.active = tab_ids[new_idx]
 
 
-def main(args=None):
-    from lazyros.utils.utility import start_ros_in_thread, stop_ros_thread
-    rclpy.init(args=args)
-    ros_node = Node("lazyros_monitor_node")
-    executor, ros_thread = start_ros_in_thread(ros_node)
-    app = LazyRosApp(ros_node)
-    app.run()
+def main():
+    app = LazyRosApp()
+
+    def _sigint(_sig, _frm):
+        app.exit()
+
+    signal.signal(signal.SIGINT, _sigint)
+    try:
+        app.run()
+    finally:
+        ros_runner.stop()
+
 
 if __name__ == "__main__":
     main()
