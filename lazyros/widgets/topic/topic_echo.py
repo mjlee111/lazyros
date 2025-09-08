@@ -42,39 +42,42 @@ class EchoViewWidget(Container):
         self.set_interval(1, self.update_display)
 
     def update_display(self):
-        self.topic_listview = self.app.query_one("#topic-listview")
-        self.selected_topic = self.topic_listview.selected_topic if self.topic_listview else None
+        try:
+            self.topic_listview = self.app.query_one("#topic-listview")
+            self.selected_topic = self.topic_listview.selected_topic if self.topic_listview else None
 
-        if self.selected_topic is None:
-            self._clear_log()
-            self.rich_log.write("[red]No topic is selected yet.[/]")
-            return
+            if self.selected_topic is None:
+                self._clear_log()
+                self.rich_log.write("[red]No topic is selected yet.[/]")
+                return
 
-        if self.selected_topic == self.current_topic:
-            if len(self._buffer) > 0:
-                self.rich_log.write("\n".join(self._buffer))
-                self._clear_buffer()
-                self._prev_echo_time = time.time()
-            else:
-                if time.time() - self._prev_echo_time> 5.0:
-                    self.rich_log.write(f"[yellow]No messages on this topic yet. (checks every 5 sec)[/yellow]")
+            if self.selected_topic == self.current_topic:
+                if len(self._buffer) > 0:
+                    self.rich_log.write("\n".join(self._buffer))
+                    self._clear_buffer()
                     self._prev_echo_time = time.time()
-            return
+                else:
+                    if time.time() - self._prev_echo_time> 5.0:
+                        self.rich_log.write(f"[yellow]No messages on this topic yet. (checks every 5 sec)[/yellow]")
+                        self._prev_echo_time = time.time()
+                return
 
-        self.current_topic = self.selected_topic
+            self.current_topic = self.selected_topic
 
-        self.rich_log.clear()
-        self._clear_buffer()
-        self._prev_echo_time = time.time()
+            self.rich_log.clear()
+            self._clear_buffer()
+            self._prev_echo_time = time.time()
 
-        self._switch_topic_and_subscribe()
+            self._switch_topic_and_subscribe()
+        except Exception:
+            pass
 
 
     def _clear_buffer(self) -> None:
         self._buffer = []
 
     def _clear_log(self) -> None:
-        self._buffer = []
+        self._clear_buffer()
         self.rich_log.clear()
 
     def _switch_topic_and_subscribe(self) -> None:
@@ -123,7 +126,10 @@ class EchoViewWidget(Container):
             return
 
     def echo_callback(self, msg):
-        if not self._sub:
-            return
-        line = f"[dim]Message from {escape(self.current_topic)}: [/dim] {escape(str(msg))}"
-        self._buffer.append(line)
+        try:
+            if not self._sub:
+                return
+            line = f"[dim]Message from {escape(self.current_topic)}: [/dim] {escape(str(msg))}"
+            self._buffer.append(line)
+        except Exception:
+            pass

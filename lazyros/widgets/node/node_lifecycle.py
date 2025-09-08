@@ -156,81 +156,87 @@ class LifecycleWidget(Container):
 
     def get_lifecycle_state(self) -> None:
         """If the node is a lifecycle node, get its state."""
-        
-        full_name = self.selected_node_data.full_name
-        
-        lifecycle_client = self.lifecycle_dict[full_name].get_lifecycle_client
-        if not lifecycle_client or not hasattr(lifecycle_client, 'handle') or lifecycle_client.handle is None:
-            return f"[red]Lifecycle client for {full_name} is invalid[/]"
-            
-        if not lifecycle_client.wait_for_service(timeout_sec=1.0):
-            return f"[red]Lifecycle service for {full_name} is not available[/]"
-
-        req = GetState.Request()
         try:
-            future = lifecycle_client.call_async(req)
-            self.ros_node.executor.spin_until_future_complete(future, timeout_sec=3.0)
-            if not future.done() or future.result() is None:
-                return f"[red]Failed to get lifecycle state for {full_name}[/]"
+            full_name = self.selected_node_data.full_name
+            
+            lifecycle_client = self.lifecycle_dict[full_name].get_lifecycle_client
+            if not lifecycle_client or not hasattr(lifecycle_client, 'handle') or lifecycle_client.handle is None:
+                return [f"[red]Lifecycle client for {full_name} is invalid[/]"]
+                
+            if not lifecycle_client.wait_for_service(timeout_sec=1.0):
+                return [f"[red]Lifecycle service for {full_name} is not available[/]"]
 
-            current = future.result().current_state
-            if self.lifecycle_dict[full_name].current_lifecycle_id != current.id:
-                self.lifecycle_dict[full_name].state_changed = True
-                self.lifecycle_dict[full_name].current_lifecycle_id = current.id
-            else:
-                self.lifecycle_dict[full_name].state_changed = False
+            req = GetState.Request()
+            try:
+                future = lifecycle_client.call_async(req)
+                self.ros_node.executor.spin_until_future_complete(future, timeout_sec=3.0)
+                if not future.done() or future.result() is None:
+                    return [f"[red]Failed to get lifecycle state for {full_name}[/]"]
 
-            info_lines = []
-            info_lines.append(f"[cyan]Lifecycle State for[/] [yellow]{escape(full_name)}: [/]")
-            info_lines.append(f"  {current.label}[{current.id}]")
-            return info_lines
+                current = future.result().current_state
+                if self.lifecycle_dict[full_name].current_lifecycle_id != current.id:
+                    self.lifecycle_dict[full_name].state_changed = True
+                    self.lifecycle_dict[full_name].current_lifecycle_id = current.id
+                else:
+                    self.lifecycle_dict[full_name].state_changed = False
+
+                info_lines = []
+                info_lines.append(f"[cyan]Lifecycle State for[/] [yellow]{escape(full_name)}: [/]")
+                info_lines.append(f"  {current.label}[{current.id}]")
+                return info_lines
+            except Exception:
+                return [f"[red]Failed to get lifecycle state for {full_name}[/]"]
         except Exception:
-            return f"[red]Failed to get lifecycle state for {full_name}[/]"
+            return [f"[red]Error accessing lifecycle data[/]"]
 
     def get_available_transitions(self):
-        full_name = self.selected_node_data.full_name
-        
-        get_transition_client = self.lifecycle_dict[full_name].get_transition_client
-        if not get_transition_client.wait_for_service(timeout_sec=1.0):
-            self.transition_log.write(f"[red]Lifecycle service for {full_name} is not available[/]")
+        try:
+            full_name = self.selected_node_data.full_name
+            
+            get_transition_client = self.lifecycle_dict[full_name].get_transition_client
+            if not get_transition_client.wait_for_service(timeout_sec=1.0):
+                return None
+
+            while not get_transition_client.wait_for_service(timeout_sec=1.0):
+                self.ros_node.get_logger().info('get_available_transitions service not available, waiting again...')
+
+            request = GetAvailableTransitions.Request()
+            future = get_transition_client.call_async(request)
+            self.ros_node.executor.spin_until_future_complete(future, timeout_sec=5.0)
+            if not future.done() or future.result() is None:
+                return None
+
+            transitions = future.result().available_transitions
+            return transitions
+        except Exception:
             return None
-
-        while not get_transition_client.wait_for_service(timeout_sec=1.0):
-            self.ros_node.get_logger().info('get_available_transitions service not available, waiting again...')
-
-        request = GetAvailableTransitions.Request()
-        future = get_transition_client.call_async(request)
-        self.ros_node.executor.spin_until_future_complete(future, timeout_sec=5.0)
-        if not future.done() or future.result() is None:
-            self.transition_log.write(f"[red]Failed to get available transitions for {full_name}[/]")
-            return None
-
-        transitions = future.result().available_transitions
-        return transitions
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
         transition_id = int(event.button.id.split("-")[-1])
         await asyncio.to_thread(self.trigger_transition, transition_id)
 
     def trigger_transition(self, transition_id: int):
-        full_name = self.selected_node_data.full_name
-        
-        self.log(f"Triggering transition {transition_id} for {full_name}")
+        try:
+            full_name = self.selected_node_data.full_name
+            
+            self.log(f"Triggering transition {transition_id} for {full_name}")
 
-        change_lifecycle_client = self.lifecycle_dict[full_name].change_lifecycle_client
-        if not change_lifecycle_client.wait_for_service(timeout_sec=1.0):
-            return None
+            change_lifecycle_client = self.lifecycle_dict[full_name].change_lifecycle_client
+            if not change_lifecycle_client.wait_for_service(timeout_sec=1.0):
+                return None
 
-        request = ChangeState.Request()
-        request.transition.id = transition_id
-        future = change_lifecycle_client.call_async(request)
+            request = ChangeState.Request()
+            request.transition.id = transition_id
+            future = change_lifecycle_client.call_async(request)
 
-        self.ros_node.executor.spin_until_future_complete(future, timeout_sec=5.0)
-        if not future.done() or future.result() is None:
-            self.log(f"Failed to change lifecycle state for {full_name}")
-            return None
-        if not future.result().success:
-            return None
+            self.ros_node.executor.spin_until_future_complete(future, timeout_sec=5.0)
+            if not future.done() or future.result() is None:
+                self.log(f"Failed to change lifecycle state for {full_name}")
+                return None
+            if not future.result().success:
+                return None
 
-        self.log(f"Transition {transition_id} for {full_name} completed successfully")
-        self.get_lifecycle_state()
+            self.log(f"Transition {transition_id} for {full_name} completed successfully")
+            self.get_lifecycle_state()
+        except Exception as e:
+            self.log(f"Error triggering transition: {e}")

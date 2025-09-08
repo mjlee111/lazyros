@@ -43,74 +43,105 @@ class NodeListWidget(Container):
 
     async def update_node_list(self) -> None:
         """Update the list of nodes."""
+        try:
+            if not self.listview.index and not self.searching:
+                self.listview.index = 0
 
-        if not self.listview.index and not self.searching:
-            self.listview.index = 0
+            if self.searching:
+                try:
+                    if self.screen.focused == self.app.query_one("#footer"):
+                        footer = self.app.query_one("#footer")
+                        query = footer.search_input
 
-        if self.searching:
-            if self.screen.focused == self.app.query_one("#footer"):
-                footer = self.app.query_one("#footer")
-                query = footer.search_input
+                        node_list = self.apply_search_filter(query)
+                        visible = set(node_list)
+                        hidden = set(self.node_listview_dict.keys()) - visible
 
-                node_list = self.apply_search_filter(query)
-                visible = set(node_list)
-                hidden = set(self.node_listview_dict.keys()) - visible
+                        searching_index = len(self.node_listview_dict.keys()) + 1
+                        for n in visible:
+                            try:
+                                index = self.node_listview_dict[n].index
+                                if index < len(self.listview.children):
+                                    item = self.listview.children[index]
+                                    item.display=True
 
-                searching_index = len(self.node_listview_dict.keys()) + 1
-                for n in visible:
-                    index = self.node_listview_dict[n].index
-                    item = self.listview.children[index]
-                    item.display=True
+                                    if index < searching_index:
+                                        searching_index = index
+                            except (IndexError, KeyError):
+                                continue
 
-                    if index < searching_index:
-                        searching_index = index
+                        if searching_index < len(self.listview.children):
+                            self.listview.index = searching_index
 
-                self.listview.index = searching_index
+                        for n in hidden:
+                            try:
+                                index = self.node_listview_dict[n].index
+                                if index < len(self.listview.children):
+                                    item = self.listview.children[index]
+                                    item.display=False
+                            except (IndexError, KeyError):
+                                continue
+                except Exception:
+                    pass
+            else:
+                try:
+                    nodes_and_namespaces = self.ros_node.get_node_names_and_namespaces()
+                    launched_node_set =list(self.node_listview_dict.keys())
+                except Exception:
+                    return
 
-                for n in hidden:
-                    index = self.node_listview_dict[n].index
-                    item = self.listview.children[index]
-                    item.display=False
-        else:
-            nodes_and_namespaces = self.ros_node.get_node_names_and_namespaces()
-            launched_node_set =list(self.node_listview_dict.keys())
+                for tuple in nodes_and_namespaces:
+                    try:
+                        node = tuple[0]
+                        namespace = tuple[1]
+                        if namespace == "/":
+                            node_name = namespace + node 
+                        else:
+                            node_name = namespace + "/" + node
 
-            for tuple in nodes_and_namespaces:
-                node = tuple[0]
-                namespace = tuple[1]
-                if namespace == "/":
-                    node_name = namespace + node 
-                else:
-                    node_name = namespace + "/" + node
+                        if self.ignore_parser.should_ignore(node_name, 'node'):
+                            continue
 
-                if self.ignore_parser.should_ignore(node_name, 'node'):
-                    continue
+                        if node_name not in launched_node_set:
+                            try:
+                                index = len(self.listview.children)
+                                self.listview.extend([ListItem(Label(RichText.assemble(RichText("●", style="bold green"), "    ", RichText(node_name))))])
+                                self.node_listview_dict[node_name] = NodeData(full_name=node_name, status="green", index=index, namespace=namespace, node_name=node)
+                            except Exception:
+                                continue
+                        else:
+                            try:
+                                index = self.node_listview_dict[node_name].index
+                                if index < len(self.listview.children) and not self.listview.children[index].display:
+                                    self.listview.children[index].display = True
 
-                if node_name not in launched_node_set:
-                        index = len(self.listview.children)
-                        self.listview.extend([ListItem(Label(RichText.assemble(RichText("●", style="bold green"), "    ", RichText(node_name))))])
-                        self.node_listview_dict[node_name] = NodeData(full_name=node_name, status="green", index=index, namespace=namespace, node_name=node)
-                else:
-                    index = self.node_listview_dict[node_name].index
-                    if not self.listview.children[index].display:
-                        self.listview.children[index].display = True
+                                if self.node_listview_dict[node_name].status != "green":
+                                    self.node_listview_dict[node_name].status = "green"
+                                    index = self.node_listview_dict[node_name].index
+                                    if index < len(self.listview.children):
+                                        item = self.listview.children[index]
+                                        label = item.query_one(Label)
+                                        label.update(RichText.assemble(RichText("●", style="bold green"), "    ", RichText(node_name)))
+                                launched_node_set.remove(node_name)
+                            except (IndexError, KeyError):
+                                continue
+                    except Exception:
+                        continue
 
-                    if self.node_listview_dict[node_name].status != "green":
-                        self.node_listview_dict[node_name].status = "green"
-                        index = self.node_listview_dict[node_name].index
-                        item = self.listview.children[index]
-                        label = item.query_one(Label)
-                        label.update(RichText.assemble(RichText("●", style="bold green"), "    ", RichText(node_name)))
-                    launched_node_set.remove(node_name)
-
-            # Set nodes that are no longer launched to red
-            for dead_node in launched_node_set:
-                if self.node_listview_dict[dead_node].status == "green":
-                    self.node_listview_dict[dead_node].status = "red"
-                    index = self.node_listview_dict[dead_node].index
-                    item = self.listview.children[index]
-                    label = item.query_one(Label)
-                    label.update(RichText.assemble(RichText("●", style="red"), "    ", RichText(dead_node)))
+                # Set nodes that are no longer launched to red
+                for dead_node in launched_node_set:
+                    try:
+                        if self.node_listview_dict[dead_node].status == "green":
+                            self.node_listview_dict[dead_node].status = "red"
+                            index = self.node_listview_dict[dead_node].index
+                            if index < len(self.listview.children):
+                                item = self.listview.children[index]
+                                label = item.query_one(Label)
+                                label.update(RichText.assemble(RichText("●", style="red"), "    ", RichText(dead_node)))
+                    except (IndexError, KeyError):
+                        continue
+        except Exception:
+            pass
 
     def on_list_view_highlighted(self, event):
         self.app.focused_pane = "left"

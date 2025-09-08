@@ -61,69 +61,74 @@ class ParameterValueWidget(Container):
         self.set_interval(1, self.update_display)
 
     async def update_display(self):
+        try:
+            self.listview_widget = self.app.query_one("#parameter-listview")
+            self.selected_parameter = self.listview_widget.selected_param if self.listview_widget else None
 
-        self.listview_widget = self.app.query_one("#parameter-listview")
-        self.selected_parameter = self.listview_widget.selected_param if self.listview_widget else None
+            view = self.query_one("#parameter-value", Static)
 
-        view = self.query_one("#parameter-value", Static)
+            if not self.selected_parameter:
+                view.update("[red]No parameter is selected yet.[/]")
+                return
 
-        if not self.selected_parameter:
-            view.update("[red]No parameter is selected yet.[/]")
-            return
+            if self.selected_parameter == self.current_parameter:
+                return
 
-        if self.selected_parameter == self.current_parameter:
-            return
-
-        self.current_parameter = self.selected_parameter
-        value_lines = await asyncio.to_thread(self.show_param_value)
-        if value_lines:
-            view.update("\n".join(value_lines))
+            self.current_parameter = self.selected_parameter
+            value_lines = await asyncio.to_thread(self.show_param_value)
+            if value_lines:
+                view.update("\n".join(value_lines))
+        except Exception:
+            pass
 
 
     def show_param_value(self):
-        match = re.fullmatch(r"([^:]+):\s*(.+)", self.current_parameter)
-        if not match:
-            return [f"[red]Invalid parameter format: {escape(self.current_parameter)}[/]"]
-        
-        node_name = match.group(1).strip()
-        param_name = match.group(2).strip()
-
-        if node_name not in self.param_client_dict:
-            try:
-                get_param_client = self.ros_node.create_client(GetParameters, f"{node_name}/get_parameters", callback_group=ReentrantCallbackGroup())
-                set_param_client = self.ros_node.create_client(SetParameters, f"{node_name}/set_parameters", callback_group=ReentrantCallbackGroup())
-                self.param_client_dict[node_name] = ParameterClients(get_parameter=get_param_client, 
-                                                                     set_parameter=set_param_client)
-            except Exception:
-                return [f"[red]Failed to create parameter client for: {escape(node_name)}[/]"]
-        else:
-            get_param_client = self.param_client_dict[node_name].get_parameter
-            set_param_client = self.param_client_dict[node_name].set_parameter
-        
-        if not get_param_client or not hasattr(get_param_client, 'handle') or get_param_client.handle is None:
-            return [f"[red]Parameter client for {escape(node_name)} is invalid[/]"]
-        
-        req = GetParameters.Request()
-        req.names = [param_name]
         try:
-            future = get_param_client.call_async(req)
-            self.ros_node.executor.spin_until_future_complete(future, timeout_sec=1.0)
-            if not future.done() or future.result() is None:
-                return [f"[red]Failed to get parameter: {escape(param_name)}[/]"]
+            match = re.fullmatch(r"([^:]+):\s*(.+)", self.current_parameter)
+            if not match:
+                return [f"[red]Invalid parameter format: {escape(self.current_parameter)}[/]"]
+            
+            node_name = match.group(1).strip()
+            param_name = match.group(2).strip()
+
+            if node_name not in self.param_client_dict:
+                try:
+                    get_param_client = self.ros_node.create_client(GetParameters, f"{node_name}/get_parameters", callback_group=ReentrantCallbackGroup())
+                    set_param_client = self.ros_node.create_client(SetParameters, f"{node_name}/set_parameters", callback_group=ReentrantCallbackGroup())
+                    self.param_client_dict[node_name] = ParameterClients(get_parameter=get_param_client, 
+                                                                         set_parameter=set_param_client)
+                except Exception:
+                    return [f"[red]Failed to create parameter client for: {escape(node_name)}[/]"]
+            else:
+                get_param_client = self.param_client_dict[node_name].get_parameter
+                set_param_client = self.param_client_dict[node_name].set_parameter
+            
+            if not get_param_client or not hasattr(get_param_client, 'handle') or get_param_client.handle is None:
+                return [f"[red]Parameter client for {escape(node_name)} is invalid[/]"]
+            
+            req = GetParameters.Request()
+            req.names = [param_name]
+            try:
+                future = get_param_client.call_async(req)
+                self.ros_node.executor.spin_until_future_complete(future, timeout_sec=1.0)
+                if not future.done() or future.result() is None:
+                    return [f"[red]Failed to get parameter: {escape(param_name)}[/]"]
+            except Exception:
+                return [f"[red]Failed to get parameter: {escape(param_name)}[/]"] 
+
+            res = future.result().values[0]
+            if res.type == ParameterType.PARAMETER_NOT_SET:
+                return [f"[red]Parameter {escape(param_name)} is not set.[/]"]
+
+            field = PARAMETER_TYPE_MAP.get(res.type, None)
+            value = getattr(res, field, None)
+            if field is None or value is None:
+                return [f"[red]Unsupported parameter type for {escape(param_name)}[/]"]
+
+            value_lines = []
+            value_lines.append(f"[bold cyan]Parameter Value for [/] [yellow]{escape(param_name)}:[/]")
+            value_lines.append(f"[bold cyan]Type:[/] [magenta]{escape(field)}[/]")
+            value_lines.append(f"[bold cyan]Value:[/] [green]{escape(str(value))}[/]")
+            return value_lines
         except Exception:
-            return [f"[red]Failed to get parameter: {escape(param_name)}[/]"] 
-
-        res = future.result().values[0]
-        if res.type == ParameterType.PARAMETER_NOT_SET:
-            return [f"[red]Parameter {escape(param_name)} is not set.[/]"]
-
-        field = PARAMETER_TYPE_MAP.get(res.type, None)
-        value = getattr(res, field, None)
-        if field is None or value is None:
-            return [f"[red]Unsupported parameter type for {escape(param_name)}[/]"]
-
-        value_lines = []
-        value_lines.append(f"[bold cyan]Parameter Value for [/] [yellow]{escape(param_name)}:[/]")
-        value_lines.append(f"[bold cyan]Type:[/] [magenta]{escape(field)}[/]")
-        value_lines.append(f"[bold cyan]Value:[/] [green]{escape(str(value))}[/]")
-        return value_lines
+            return [f"[red]Error retrieving parameter value[/]"]

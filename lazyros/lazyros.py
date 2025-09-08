@@ -79,9 +79,12 @@ class LazyRosApp(App):
         super().__init__(**kwargs)
 
         self._searching = False
-        ros_runner.start()
-        self.ros_node = ros_runner.node
-        assert self.ros_node is not None, "ROS node must be available before compose()"
+        try:
+            ros_runner.start()
+            self.ros_node = ros_runner.node
+            assert self.ros_node is not None, "ROS node must be available before compose()"
+        except Exception as e:
+            self.exit(message=f"Failed to initialize ROS node: {e}")
 
     def get_ros_info(self):
         ros_distro = os.environ.get("ROS_DISTRO", "unknown")
@@ -91,11 +94,14 @@ class LazyRosApp(App):
         return title
 
     def on_mount(self) -> None:
-        self.screen.title = self.get_ros_info()
-        self.right_pane = self.query_one("#right-pane")
+        try:
+            self.screen.title = self.get_ros_info()
+            self.right_pane = self.query_one("#right-pane")
 
-        node_list_widget = self.query_one("#node-listview")
-        node_list_widget.listview.focus()
+            node_list_widget = self.query_one("#node-listview")
+            node_list_widget.listview.focus()
+        except Exception as e:
+            self.log.error(f"Error during mount: {e}")
 
     def on_shutdown(self, _event) -> None:
         ros_runner.stop()
@@ -181,10 +187,13 @@ class LazyRosApp(App):
         self.set_focus(self.footer)
 
     def focus_searched_listview(self):
-        listview_id = self.footer.searching_id
-        if listview_id:
-            listview = self.query_one(f"#{listview_id}")
-            listview.listview.focus()
+        try:
+            listview_id = self.footer.searching_id
+            if listview_id:
+                listview = self.query_one(f"#{listview_id}")
+                listview.listview.focus()
+        except Exception as e:
+            self.log.error(f"Error focusing searched listview: {e}")
         
     def end_search(self):
         self.footer.exit_search()
@@ -226,15 +235,21 @@ class LazyRosApp(App):
             self.current_pane_index = (self.current_pane_index - 1) % len(self.LISTVIEW_CONTAINERS)
 
     def _focus_right_pane(self):
-        current_listview = self.LISTVIEW_CONTAINERS[self.current_pane_index]
-        tabs = self.query_one(f"#{current_listview}-tabs")
-        widget = self.query_one(f"#{current_listview}-{tabs.active}-view-content")
-        if hasattr(widget, "rich_log"):
-            widget.rich_log.focus()
+        try:
+            current_listview = self.LISTVIEW_CONTAINERS[self.current_pane_index]
+            tabs = self.query_one(f"#{current_listview}-tabs")
+            widget = self.query_one(f"#{current_listview}-{tabs.active}-view-content")
+            if hasattr(widget, "rich_log"):
+                widget.rich_log.focus()
+        except Exception as e:
+            self.log.error(f"Error focusing right pane: {e}")
 
     def _focus_listview(self):
-        current_listview = self.LISTVIEW_CONTAINERS[self.current_pane_index]
-        self.query_one(f"#{current_listview}-listview").listview.focus()
+        try:
+            current_listview = self.LISTVIEW_CONTAINERS[self.current_pane_index]
+            self.query_one(f"#{current_listview}-listview").listview.focus()
+        except Exception as e:
+            self.log.error(f"Error focusing listview: {e}")
 
     def _set_active_pane(self, widget, active: bool) -> None:
         widget.set_class(active, "-active")

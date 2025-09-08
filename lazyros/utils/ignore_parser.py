@@ -32,7 +32,12 @@ class IgnoreParser:
                     elif line.startswith('parameter'):
                         current_type = 'parameter'
                     elif current_type:
-                        patterns[current_type].append(self._glob_to_regex(line))
+                        try:
+                            patterns[current_type].append(self._glob_to_regex(line))
+                        except Exception:
+                            continue
+        except (IOError, OSError, UnicodeDecodeError) as e:
+            pass
         except Exception as e:
             pass
 
@@ -49,10 +54,15 @@ class IgnoreParser:
 
     def should_ignore(self, item_name, item_type):
         """Checks if an item name should be ignored based on its type."""
-
-        if item_type not in self._ignore_patterns:
+        try:
+            if item_type not in self._ignore_patterns:
+                return False
+            for pattern in self._ignore_patterns[item_type]:
+                try:
+                    if re.fullmatch(pattern, item_name):
+                        return True
+                except re.error:
+                    continue
             return False
-        for pattern in self._ignore_patterns[item_type]:
-            if re.fullmatch(pattern, item_name):
-                return True
-        return False
+        except Exception:
+            return False
