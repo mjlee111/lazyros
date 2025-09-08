@@ -10,9 +10,6 @@ from dataclasses import dataclass
 from lifecycle_msgs.srv import GetState, ChangeState, GetAvailableTransitions
 from rclpy.callback_groups import ReentrantCallbackGroup
 
-def escape_markup(text: str) -> str:
-    """Escape text for rich markup."""
-    return escape(text)
 
 @dataclass
 class LifecycleData:
@@ -75,7 +72,6 @@ class LifecycleWidget(Container):
         self.set_interval(0.3, self.update_display)
 
     async def update_transition_buttons(self):
-        self.log("update")
         node_name = self.selected_node_data.full_name.lstrip('/')
         for button in self.query("#lifecycle-transition-buttons > Button"):
             button.remove()
@@ -119,7 +115,6 @@ class LifecycleWidget(Container):
             return self.rich_log.write(f"[red]Node {self.selected_node_data.full_name} is not a lifecycle node.[/]")
         
         self.trans_section.remove_class("hidden")
-        #info_lines = self.get_lifecycle_state()
         info_lines = await asyncio.to_thread(self.get_lifecycle_state)
         self.rich_log.write("\n".join(info_lines))
 
@@ -172,11 +167,10 @@ class LifecycleWidget(Container):
             self.lifecycle_dict[full_name].state_changed = False
 
         info_lines = []
-        info_lines.append(f"Lifecycle State for {full_name}:")
+        info_lines.append(f"[cyan]Lifecycle State for[/] [yellow]{escape(full_name)}: [/]")
         info_lines.append(f"  {current.label}[{current.id}]")
         return info_lines
 
-    # change lifecycle state
     def get_available_transitions(self):
         full_name = self.selected_node_data.full_name
         

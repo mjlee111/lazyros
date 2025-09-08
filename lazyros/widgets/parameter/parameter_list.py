@@ -22,9 +22,6 @@ from lazyros.utils.utility import create_css_id
 from lazyros.utils.custom_widgets import CustomListView 
 
 
-def escape_markup(text: str) -> str:
-    """Escape text for rich markup."""
-    return escape(text)
 
 class ParameterListWidget(Container):
     """A widget to display the list of ROS parameters."""
@@ -46,8 +43,7 @@ class ParameterListWidget(Container):
         self.ros_node = ros_node
         self.listview = CustomListView()
 
-        ignore_file_path = os.path.join(os.path.dirname(__file__), '../../../config/display_ignore.yaml')
-        self.ignore_parser = IgnoreParser(os.path.abspath(ignore_file_path))
+        self.ignore_parser = IgnoreParser()
 
         self.selected_param = None
         self.node_listview = None

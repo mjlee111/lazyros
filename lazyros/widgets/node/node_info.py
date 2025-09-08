@@ -11,10 +11,6 @@ from rich.text import Text
 import asyncio
 
 
-def escape_markup(text: str) -> str:
-    """Escape text for rich markup."""
-    return escape(text)
-
 class InfoViewWidget(Container):
     """Widget for displaying ROS node information."""
 
@@ -87,32 +83,32 @@ class InfoViewWidget(Container):
         for sub in subs:
             topic = sub[0]
             type_list = sub[1]
-            info_lines.append(f"      {escape_markup(topic)}: {escape_markup(', '.join(type_list))}")
+            info_lines.append(f"      {escape(topic)}: {escape(', '.join(type_list))}")
         info_lines.append(f"  Publishers:")
         for pub in pubs:
             topic = pub[0]
             type_list = pub[1]
-            info_lines.append(f"      {escape_markup(topic)}: {escape_markup(', '.join(type_list))}")
+            info_lines.append(f"      {escape(topic)}: {escape(', '.join(type_list))}")
         info_lines.append(f"  Service Clients:")
         for client in service_clients:
             service = client[0]
             type_list = client[1]
-            info_lines.append(f"      {escape_markup(service)}: {escape_markup(', '.join(type_list))}")
+            info_lines.append(f"      {escape(service)}: {escape(', '.join(type_list))}")
         info_lines.append(f"  Service Servers:")
         for server in service_servers:
             service = server[0]
             type_list = server[1]
-            info_lines.append(f"      {escape_markup(service)}: {escape_markup(', '.join(type_list))}")
+            info_lines.append(f"      {escape(service)}: {escape(', '.join(type_list))}")
         info_lines.append(f"  Action Servers:")
         for server in action_servers:
             action = server[0]
             type_list = server[1]
-            info_lines.append(f"      {escape_markup(action)}: {escape_markup(', '.join(type_list))}")
+            info_lines.append(f"      {escape(action)}: {escape(', '.join(type_list))}")
         info_lines.append(f"  Action Clients:")
         for client in action_clients:
             action = client[0]
             type_list = client[1]
-            info_lines.append(f"      {escape_markup(action)}: {escape_markup(', '.join(type_list))}")
+            info_lines.append(f"      {escape(action)}: {escape(', '.join(type_list))}")
         
         self.info_dict[full_name] = info_lines
         return info_lines

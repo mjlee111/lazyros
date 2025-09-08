@@ -1,3 +1,4 @@
+import os
 import signal
 import atexit
 
@@ -21,7 +22,7 @@ from lazyros.widgets.parameter.parameter_list import ParameterListWidget
 from lazyros.widgets.parameter.parameter_value import ParameterValueWidget
 from lazyros.widgets.parameter.parameter_info import ParameterInfoWidget
 
-from lazyros.utils.custom_widgets import SearchFooter, CustomHeader
+from lazyros.utils.custom_widgets import CustomListView, SearchFooter, CustomHeader
 from lazyros.utils.utility import RosRunner
 
 
@@ -52,7 +53,6 @@ class HelpModal(ModalScreen):
         yield Static(help_text, id="modal-container")
 
 
-# ===================== Textual App =====================
 class LazyRosApp(App):
     """A Textual app to monitor ROS information."""
     CSS_PATH = "lazyros.css"
@@ -83,9 +83,7 @@ class LazyRosApp(App):
         self.ros_node = ros_runner.node
         assert self.ros_node is not None, "ROS node must be available before compose()"
 
-
     def get_ros_info(self):
-        import os
         ros_distro = os.environ.get("ROS_DISTRO", "unknown")
         ros_domain = os.environ.get("ROS_DOMAIN_ID", "0")
         dds_implementation = os.environ.get("RMW_IMPLEMENTATION", "unknown")
@@ -94,28 +92,21 @@ class LazyRosApp(App):
 
     def on_mount(self) -> None:
         self.screen.title = self.get_ros_info()
+        self.right_pane = self.query_one("#right-pane")
+
         node_list_widget = self.query_one("#node-listview")
         node_list_widget.listview.focus()
-        self.right_pane = self.query_one("#right-pane")
 
     def on_shutdown(self, _event) -> None:
         ros_runner.stop()
 
     def on_mouse_down(self, event) -> None:
-        from lazyros.utils.custom_widgets import CustomListView, SearchFooter
         focus_type = type(self.screen.focused)
-        focus = self.screen.focused
-        self.log(f"Focused: {focus} ({focus_type})")
 
-        if focus_type is CustomListView:
-            return
-        elif focus_type is SearchFooter:
-            return
-        else:
+        if focus_type is not CustomListView and focus_type is not SearchFooter:
             self.focused_pane = "right"
         
     def on_key(self, event) -> None:
-
         if event.key == "enter":
             if self._searching:
                 self.focus_searched_listview()
@@ -154,8 +145,7 @@ class LazyRosApp(App):
                     with parameter_container:
                         yield ParameterListWidget(self.ros_node, classes="list-view", id="parameter-listview")
 
-            container = Container(classes="right-pane", id="right-pane")
-            with container:
+            with Container(classes="right-pane", id="right-pane"):
                 with TabbedContent("Log", "Lifecycle", "Info", id="node-tabs"):
                     with TabPane("Log", id="log"):
                         yield LogViewWidget(self.ros_node, classes="view-content", id="node-log-view-content")
@@ -179,10 +169,9 @@ class LazyRosApp(App):
         self.footer = SearchFooter(id="footer")
         yield self.footer 
 
-    # ========= actions =========
-
     def action_search(self):
         self._searching = True 
+
         searching_listview = self.LISTVIEW_CONTAINERS[self.current_pane_index] + "-listview"
         self.footer.searching_id = searching_listview
         listview = self.query_one(f"#{searching_listview}")
@@ -210,9 +199,6 @@ class LazyRosApp(App):
 
         self._searching = False
 
-        self.footer.refresh(layout=True)
-        self.refresh(layout=True)
-
     def action_help(self):
         self.push_screen(HelpModal())
 
@@ -239,7 +225,6 @@ class LazyRosApp(App):
         else:
             self.current_pane_index = (self.current_pane_index - 1) % len(self.LISTVIEW_CONTAINERS)
 
-    # ========= helpers =========
     def _focus_right_pane(self):
         current_listview = self.LISTVIEW_CONTAINERS[self.current_pane_index]
         tabs = self.query_one(f"#{current_listview}-tabs")

@@ -12,10 +12,6 @@ from lazyros.utils.ignore_parser import IgnoreParser
 from lazyros.utils.utility import create_css_id
 from lazyros.utils.custom_widgets import CustomListView
 
-
-def escape_markup(text: str) -> str:
-    return escape(text)
-
             
 @dataclass
 class NodeData:
@@ -26,7 +22,7 @@ class NodeData:
     node_name: str = ""
 
 class NodeListWidget(Container):
-    def __init__(self, ros_node: Node, ignore_file_path='config/display_ignore.yaml', **kwargs) -> None:
+    def __init__(self, ros_node: Node, **kwargs) -> None:
         super().__init__(**kwargs)
         self.ros_node = ros_node
         self.listview = CustomListView()
@@ -34,8 +30,7 @@ class NodeListWidget(Container):
         self.searching = False
         
         self.selected_node_name = None
-        ignore_file_path = os.path.join(os.path.dirname(__file__), '../../../config/display_ignore.yaml')
-        self.ignore_parser = IgnoreParser(os.path.abspath(ignore_file_path))
+        self.ignore_parser = IgnoreParser()
 
     def compose(self) -> ComposeResult:
         yield self.listview

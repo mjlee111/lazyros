@@ -30,10 +30,6 @@ PARAMETER_TYPE_MAP = {
     ParameterType.PARAMETER_STRING_ARRAY: "string_array_value",
 }
 
-def escape_markup(text: str) -> str:
-    """Escape text for rich markup."""
-    return escape(text)
-
 @dataclass
 class ParameterClients:
     get_parameter: None
@@ -87,7 +83,7 @@ class ParameterValueWidget(Container):
     def show_param_value(self):
         match = re.fullmatch(r"([^:]+):\s*(.+)", self.current_parameter)
         if not match:
-            return [f"[red]Invalid parameter format: {escape_markup(self.current_parameter)}[/]"]
+            return [f"[red]Invalid parameter format: {escape(self.current_parameter)}[/]"]
         
         node_name = match.group(1).strip()
         param_name = match.group(2).strip()
@@ -106,19 +102,19 @@ class ParameterValueWidget(Container):
         future = get_param_client.call_async(req)
         self.ros_node.executor.spin_until_future_complete(future, timeout_sec=1.0)
         if not future.done() or future.result() is None:
-            return [f"[red]Failed to get parameter: {escape_markup(param_name)}[/]"] 
+            return [f"[red]Failed to get parameter: {escape(param_name)}[/]"] 
 
         res = future.result().values[0]
         if res.type == ParameterType.PARAMETER_NOT_SET:
-            return [f"[red]Parameter {escape_markup(param_name)} is not set.[/]"]
+            return [f"[red]Parameter {escape(param_name)} is not set.[/]"]
 
         field = PARAMETER_TYPE_MAP.get(res.type, None)
         value = getattr(res, field, None)
         if field is None or value is None:
-            return [f"[red]Unsupported parameter type for {escape_markup(param_name)}[/]"]
+            return [f"[red]Unsupported parameter type for {escape(param_name)}[/]"]
 
         value_lines = []
-        value_lines.append(f"[bold]Parameter Value for {escape_markup(param_name)}:[/bold]")
-        value_lines.append(f"[bold]Type:[/] {escape_markup(field)}")
-        value_lines.append(f"[green]Value: {escape_markup(str(value))}[/green]")
+        value_lines.append(f"[bold cyan]Parameter Value for [/] [yellow]{escape(param_name)}:[/]")
+        value_lines.append(f"[bold cyan]Type:[/] [magenta]{escape(field)}[/]")
+        value_lines.append(f"[bold cyan]Value:[/] [green]{escape(str(value))}[/]")
         return value_lines

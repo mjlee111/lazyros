@@ -12,11 +12,6 @@ from textual.binding import Binding
 from textual.events import Focus
 
 
-def escape_markup(text: str) -> str:
-    """Escape text for rich markup."""
-    return escape(text)
-
-
 class MyRichLog(RichLog):
     BINDINGS = [
         Binding("g,g", "go_top", "Top", show=False),     # gg -> 先頭へ
@@ -58,7 +53,7 @@ class LogViewWidget(Container):
         self.logs_by_node: dict[str, list[str]] = {}
         self.current_node = None
         self.selected_node = None
-        qos_profile = QoSProfile(depth=10,
+        qos_profile = QoSProfile(depth=rclpy.qos.QoSHistoryPolicy.KEEP_LAST,
                                  reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
                                  durability=rclpy.qos.DurabilityPolicy.VOLATILE)
         self.ros_node.create_subscription(
@@ -68,8 +63,7 @@ class LogViewWidget(Container):
             qos_profile,
             callback_group=ReentrantCallbackGroup()
         )
-        #self.ros_node.create_timer(0.5, self.display_logs, callback_group=ReentrantCallbackGroup())
-        self._log_buffer = -1000 # for log buffer
+        self._log_buffer = -1000
 
     def on_mount(self):
         self.set_interval(0.5, self.display_logs)
@@ -78,7 +72,7 @@ class LogViewWidget(Container):
         yield self.rich_log
 
     def _level_to_char(self, level: int) -> str:
-        if level == Log.DEBUG[0]: return "DEBUG" # Compare with Log.DEBUG directly
+        if level == Log.DEBUG[0]: return "DEBUG"
         if level == Log.INFO[0]: return "INFO"
         if level == Log.WARN[0]: return "WARN"
         if level == Log.ERROR[0]: return "ERROR"
@@ -132,4 +126,3 @@ class LogViewWidget(Container):
         else:
             self.rich_log.clear()
             self.rich_log.write(f"[yellow]No logs found for node: {self.current_node}[/]") 
-

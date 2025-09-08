@@ -14,9 +14,7 @@ from textual.widgets import Static
 import asyncio
 from rich.text import Text
 
-def escape_markup(text: str) -> str:
-    """Escape text for rich markup."""
-    return escape(text)
+
 
 PARAMETER_TYPE_MAP = {
     ParameterType.PARAMETER_BOOL: "bool",
@@ -79,7 +77,7 @@ class ParameterInfoWidget(Container):
         
         match = re.fullmatch(r"([^:]+):\s*(.+)", self.current_parameter)
         if not match:
-            return [f"[red]Invalid parameter format: {escape_markup(self.current_parameter)}[/]"]
+            return [f"[red]Invalid parameter format: {escape(self.current_parameter)}[/]"]
         
         node_name = match.group(1).strip()
         param_name = match.group(2).strip()
@@ -88,7 +86,6 @@ class ParameterInfoWidget(Container):
             client = self.ros_node.create_client(DescribeParameters, f"{node_name}/describe_parameters", callback_group=ReentrantCallbackGroup())
             self.param_client_dict[node_name] = client
         else:
-            # TODO: info of same param can be saved instead of calling everytime.
             client = self.param_client_dict[node_name]
 
         req = DescribeParameters.Request()
@@ -96,19 +93,20 @@ class ParameterInfoWidget(Container):
         future = client.call_async(req)
         self.ros_node.executor.spin_until_future_complete(future, timeout_sec=1.0)
         if not future.done() or future.result() is None:
-            return [f"[red]Failed to get parameter info for: {escape_markup(self.current_parameter)}[/]"]   
+            return [f"[red]Failed to get parameter info for: {escape(self.current_parameter)}[/]"]   
 
         res = future.result().descriptors[0]
         if res.type == ParameterType.PARAMETER_NOT_SET:
-            return [f"[red]Parameter {escape_markup(param_name)} is not set.[/]"]
+            return [f"[red]Parameter {escape(param_name)} is not set.[/]"]
 
         field = PARAMETER_TYPE_MAP.get(res.type, None)
         if field is None:
-            return [f"[red]Unsupported parameter type for {escape_markup(param_name)}[/]"]
+            return [f"[red]Unsupported parameter type for {escape(param_name)}[/]"]
         description = res.description if res.description else "No description available."        
 
         info_lines = []
-        info_lines.append(f"[bold]Parameter name: {escape_markup(param_name)}[/bold]")
-        info_lines.append(f"[bold]Type:[/] {escape_markup(field)}")
-        info_lines.append(f"[bold]Description:[/] {escape_markup(description)}")
+        info_lines.append(f"[bold cyan]Parameter name:[/] [yellow]{escape(param_name)}[/]")
+        info_lines.append(f"[bold cyan]Type:[/] [green]{escape(field)}[/]")
+        info_lines.append(f"[bold cyan]Description:[/] [magenta]{escape(description)}[/]")
+
         return info_lines
