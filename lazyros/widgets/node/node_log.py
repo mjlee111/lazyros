@@ -151,7 +151,7 @@ class LogViewWidget(Container):
 
             if not self.selected_node:
                 self.rich_log.clear()
-                self.rich_log.write("[bold red]No log to display.[/]")
+                self.rich_log.write("[bold red]No logs available to display.[/]")
                 return
 
             if self.current_node != self.selected_node:
@@ -169,6 +169,6 @@ class LogViewWidget(Container):
                     pass
             else:
                 self.rich_log.clear()
-                self.rich_log.write(f"[yellow]No logs found for node: {self.current_node}[/]")
+                self.rich_log.write(f"[yellow]No logs found for node '{self.current_node}'.[/]")
         except Exception:
             pass 

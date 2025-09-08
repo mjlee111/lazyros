@@ -69,7 +69,7 @@ class EchoViewWidget(Container):
 
             if self.selected_topic is None:
                 self._clear_log()
-                self.rich_log.write("[red]No topic is selected yet.[/]")
+                self.rich_log.write("[red]Please select a topic first.[/]")
                 return
 
             if self.selected_topic == self.current_topic:
@@ -79,7 +79,7 @@ class EchoViewWidget(Container):
                     self._prev_echo_time = time.time()
                 else:
                     if time.time() - self._prev_echo_time> 5.0:
-                        self.rich_log.write(f"[yellow]No messages on this topic yet. (checks every 5 sec)[/yellow]")
+                        self.rich_log.write(f"[yellow]No messages received yet (checking every 5 seconds).[/yellow]")
                         self._prev_echo_time = time.time()
                 return
 
@@ -119,19 +119,19 @@ class EchoViewWidget(Container):
         topic_dict = self.topic_listview.topic_dict if self.topic_listview else {}
         type_list = topic_dict.get(self.current_topic, None)
         if not type_list:
-            self.rich_log.write(f"[red]Topic {escape(self.current_topic)} is not valid.[/]")
+            self.rich_log.write(f"[red]Topic '{escape(self.current_topic)}' is not available.[/]")
             return
 
         topic_type = type_list[0]
         try:
             msg_type = get_message(topic_type)
         except Exception as e:
-            self.rich_log.write(f"[red]Failed to get message type for {escape(self.current_topic)}: "
+            self.rich_log.write(f"[red]Unable to determine message type for '{escape(self.current_topic)}': "
                         f"{escape(str(e))}[/]")
             return
 
         self.rich_log.write(
-            f"[bold]Echoing topic: [yellow]{escape(self.current_topic)}[/] "
+            f"[bold]Monitoring topic: [yellow]{escape(self.current_topic)}[/] "
             f"[dim]({escape(topic_type)})[/][/bold]"
         )
 
@@ -146,7 +146,7 @@ class EchoViewWidget(Container):
             )
 
         except Exception as e:
-            self.rich_log.write(f"[red]Failed to subscribe to {escape(self.current_topic)}: "
+            self.rich_log.write(f"[red]Unable to subscribe to '{escape(self.current_topic)}': "
                         f"{escape(str(e))}[/]")
             self._sub = None
             return

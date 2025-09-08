@@ -126,12 +126,12 @@ class LifecycleWidget(Container):
 
         if self.selected_node_data is None:
             self.rich_log.clear()
-            self.rich_log.write("[red]No node is selected yet.[/]")
+            self.rich_log.write("[red]Please select a node first.[/]")
             return
 
         if self.selected_node_data.status != "green":
             self.rich_log.clear()
-            self.rich_log.write("[red]Selected node is shutdown.[/]")
+            self.rich_log.write("[red]The selected node is not running.[/]")
             return
 
         if self.selected_node_data.full_name == self.current_node_full_name:
@@ -146,7 +146,7 @@ class LifecycleWidget(Container):
 
         self.trans_section.add_class("hidden")
         if not self.lifecycle_dict[self.selected_node_data.full_name].is_lifecycle:
-            return self.rich_log.write(f"[red]Node {self.selected_node_data.full_name} is not a lifecycle node.[/]")
+            return self.rich_log.write(f"[red]Node '{self.selected_node_data.full_name}' does not support lifecycle management.[/]")
         
         self.trans_section.remove_class("hidden")
         info_lines = await asyncio.to_thread(self.get_lifecycle_state)
@@ -246,7 +246,7 @@ class LifecycleWidget(Container):
                 return None
 
             while not get_transition_client.wait_for_service(timeout_sec=1.0):
-                self.ros_node.get_logger().info('get_available_transitions service not available, waiting again...')
+                self.ros_node.get_logger().info('Waiting for lifecycle transition service to become available...')
 
             request = GetAvailableTransitions.Request()
             future = get_transition_client.call_async(request)
