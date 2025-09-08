@@ -1,19 +1,15 @@
+import asyncio
 import subprocess
+from typing import Any, Dict, List, Optional, Union
 
-from rclpy.node import Node
 from rclpy.action import graph
+from rclpy.node import Node
+from rich.markup import escape
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Container
-from textual.widgets import RichLog
-from rich.markup import escape
-from textual.widgets import Static 
-from rich.text import Text
-import asyncio
+from textual.widgets import RichLog, Static
 
-
-def escape_markup(text: str) -> str:
-    """Escape text for rich markup."""
-    return escape(text)
 
 class InfoViewWidget(Container):
     """Widget for displaying ROS node information."""
@@ -24,22 +20,42 @@ class InfoViewWidget(Container):
     }
     """
 
-    def __init__(self, ros_node: Node, **kwargs) -> None:
+    def __init__(self, ros_node: Node, **kwargs: Any) -> None:
+        """Initialize the InfoViewWidget.
+        
+        Args:
+            ros_node: The ROS node instance for communication
+            **kwargs: Additional keyword arguments passed to the parent Container
+        """
         super().__init__(**kwargs)
-        self.ros_node = ros_node # May not be directly used if info comes from subprocess
+        self.ros_node = ros_node 
         self.rich_log = RichLog(wrap=True, highlight=True, markup=True, id="info-log", max_lines=1000)
-        self.info_dict: dict[str, list[str]] = {} # Cache for node info
+        self.info_dict: dict[str, list[str]] = {}
         
         self.selected_node_data = None
         self.current_node_full_name = None
 
     def compose(self) -> ComposeResult:
+        """Compose the widget layout.
+        
+        Returns:
+            ComposeResult: A generator yielding widget components
+        """
         yield Static("", id="node-info")
         
     def on_mount(self) -> None:
-        self.set_interval(1, self.update_info)  # Update info every 0.5 seconds
+        """Handle the widget mount event.
+        
+        Sets up periodic interval to update node information.
+        """
+        self.set_interval(1, self.update_info) 
             
-    async def update_info(self):
+    async def update_info(self) -> None:
+        """Update the node information display.
+        
+        Fetches information about the selected node and displays it.
+        Updates are skipped if no node is selected or if the node is shutdown.
+        """
         node_listview = self.app.query_one("#node-listview")
         
         view = self.query_one("#node-info", Static)
@@ -65,7 +81,13 @@ class InfoViewWidget(Container):
             view.update(Text.from_markup("\n".join(info_lines)))
 
 
-    def show_node_info(self) -> None:
+    def show_node_info(self) -> Optional[List[str]]:
+        """Retrieve and format node information.
+        
+        Returns:
+            Optional[List[str]]: A list of formatted strings containing node information,
+                                or None if information could not be retrieved
+        """
         node_data = self.selected_node_data
         if node_data.full_name in self.info_dict:
             return self.info_dict[node_data.full_name]
@@ -82,37 +104,37 @@ class InfoViewWidget(Container):
         action_clients = graph.get_action_client_names_and_types_by_node(self.ros_node, node, namespace) 
 
         info_lines = []
-        info_lines.append(f"{full_name}") 
-        info_lines.append(f"  Subscribers:")
+        info_lines.append(f"[bold cyan]Node:[/] [yellow]{escape(full_name)}[/]")
+
+        info_lines.append(f"[bold cyan]Subscribers:[/]")
         for sub in subs:
-            topic = sub[0]
-            type_list = sub[1]
-            info_lines.append(f"      {escape_markup(topic)}: {escape_markup(', '.join(type_list))}")
-        info_lines.append(f"  Publishers:")
+            topic, type_list = sub
+            info_lines.append(f"  [yellow]{escape(topic)}[/]: [green]{escape(', '.join(type_list))}[/]")
+
+        info_lines.append(f"[bold cyan]Publishers:[/]")
         for pub in pubs:
-            topic = pub[0]
-            type_list = pub[1]
-            info_lines.append(f"      {escape_markup(topic)}: {escape_markup(', '.join(type_list))}")
-        info_lines.append(f"  Service Clients:")
+            topic, type_list = pub
+            info_lines.append(f"  [yellow]{escape(topic)}[/]: [green]{escape(', '.join(type_list))}[/]")
+
+        info_lines.append(f"[bold cyan]Service Clients:[/]")
         for client in service_clients:
-            service = client[0]
-            type_list = client[1]
-            info_lines.append(f"      {escape_markup(service)}: {escape_markup(', '.join(type_list))}")
-        info_lines.append(f"  Service Servers:")
+            service, type_list = client
+            info_lines.append(f"  [yellow]{escape(service)}[/]: [magenta]{escape(', '.join(type_list))}[/]")
+
+        info_lines.append(f"[bold cyan]Service Servers:[/]")
         for server in service_servers:
-            service = server[0]
-            type_list = server[1]
-            info_lines.append(f"      {escape_markup(service)}: {escape_markup(', '.join(type_list))}")
-        info_lines.append(f"  Action Servers:")
+            service, type_list = server
+            info_lines.append(f"  [yellow]{escape(service)}[/]: [magenta]{escape(', '.join(type_list))}[/]")
+
+        info_lines.append(f"[bold cyan]Action Servers:[/]")
         for server in action_servers:
-            action = server[0]
-            type_list = server[1]
-            info_lines.append(f"      {escape_markup(action)}: {escape_markup(', '.join(type_list))}")
-        info_lines.append(f"  Action Clients:")
+            action, type_list = server
+            info_lines.append(f"  [yellow]{escape(action)}[/]: [blue]{escape(', '.join(type_list))}[/]")
+
+        info_lines.append(f"[bold cyan]Action Clients:[/]")
         for client in action_clients:
-            action = client[0]
-            type_list = client[1]
-            info_lines.append(f"      {escape_markup(action)}: {escape_markup(', '.join(type_list))}")
-        
+            action, type_list = client
+            info_lines.append(f"  [yellow]{escape(action)}[/]: [blue]{escape(', '.join(type_list))}[/]")
+
         self.info_dict[full_name] = info_lines
         return info_lines
