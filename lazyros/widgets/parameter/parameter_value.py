@@ -89,19 +89,28 @@ class ParameterValueWidget(Container):
         param_name = match.group(2).strip()
 
         if node_name not in self.param_client_dict:
-            get_param_client = self.ros_node.create_client(GetParameters, f"{node_name}/get_parameters", callback_group=ReentrantCallbackGroup())
-            set_param_client = self.ros_node.create_client(SetParameters, f"{node_name}/set_parameters", callback_group=ReentrantCallbackGroup())
-            self.param_client_dict[node_name] = ParameterClients(get_parameter=get_param_client, 
-                                                                 set_parameter=set_param_client)
+            try:
+                get_param_client = self.ros_node.create_client(GetParameters, f"{node_name}/get_parameters", callback_group=ReentrantCallbackGroup())
+                set_param_client = self.ros_node.create_client(SetParameters, f"{node_name}/set_parameters", callback_group=ReentrantCallbackGroup())
+                self.param_client_dict[node_name] = ParameterClients(get_parameter=get_param_client, 
+                                                                     set_parameter=set_param_client)
+            except Exception:
+                return [f"[red]Failed to create parameter client for: {escape(node_name)}[/]"]
         else:
             get_param_client = self.param_client_dict[node_name].get_parameter
             set_param_client = self.param_client_dict[node_name].set_parameter
         
+        if not get_param_client or not hasattr(get_param_client, 'handle') or get_param_client.handle is None:
+            return [f"[red]Parameter client for {escape(node_name)} is invalid[/]"]
+        
         req = GetParameters.Request()
         req.names = [param_name]
-        future = get_param_client.call_async(req)
-        self.ros_node.executor.spin_until_future_complete(future, timeout_sec=1.0)
-        if not future.done() or future.result() is None:
+        try:
+            future = get_param_client.call_async(req)
+            self.ros_node.executor.spin_until_future_complete(future, timeout_sec=1.0)
+            if not future.done() or future.result() is None:
+                return [f"[red]Failed to get parameter: {escape(param_name)}[/]"]
+        except Exception:
             return [f"[red]Failed to get parameter: {escape(param_name)}[/]"] 
 
         res = future.result().values[0]

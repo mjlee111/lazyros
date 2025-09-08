@@ -22,9 +22,9 @@ class InfoViewWidget(Container):
 
     def __init__(self, ros_node: Node, **kwargs) -> None:
         super().__init__(**kwargs)
-        self.ros_node = ros_node # May not be directly used if info comes from subprocess
+        self.ros_node = ros_node 
         self.rich_log = RichLog(wrap=True, highlight=True, markup=True, id="info-log", max_lines=1000)
-        self.info_dict: dict[str, list[str]] = {} # Cache for node info
+        self.info_dict: dict[str, list[str]] = {}
         
         self.selected_node_data = None
         self.current_node_full_name = None
@@ -33,7 +33,7 @@ class InfoViewWidget(Container):
         yield Static("", id="node-info")
         
     def on_mount(self) -> None:
-        self.set_interval(1, self.update_info)  # Update info every 0.5 seconds
+        self.set_interval(1, self.update_info) 
             
     async def update_info(self):
         node_listview = self.app.query_one("#node-listview")
@@ -78,37 +78,37 @@ class InfoViewWidget(Container):
         action_clients = graph.get_action_client_names_and_types_by_node(self.ros_node, node, namespace) 
 
         info_lines = []
-        info_lines.append(f"{full_name}") 
-        info_lines.append(f"  Subscribers:")
+        info_lines.append(f"[bold cyan]Node:[/] [yellow]{escape(full_name)}[/]")
+
+        info_lines.append(f"[bold cyan]Subscribers:[/]")
         for sub in subs:
-            topic = sub[0]
-            type_list = sub[1]
-            info_lines.append(f"      {escape(topic)}: {escape(', '.join(type_list))}")
-        info_lines.append(f"  Publishers:")
+            topic, type_list = sub
+            info_lines.append(f"  [yellow]{escape(topic)}[/]: [green]{escape(', '.join(type_list))}[/]")
+
+        info_lines.append(f"[bold cyan]Publishers:[/]")
         for pub in pubs:
-            topic = pub[0]
-            type_list = pub[1]
-            info_lines.append(f"      {escape(topic)}: {escape(', '.join(type_list))}")
-        info_lines.append(f"  Service Clients:")
+            topic, type_list = pub
+            info_lines.append(f"  [yellow]{escape(topic)}[/]: [green]{escape(', '.join(type_list))}[/]")
+
+        info_lines.append(f"[bold cyan]Service Clients:[/]")
         for client in service_clients:
-            service = client[0]
-            type_list = client[1]
-            info_lines.append(f"      {escape(service)}: {escape(', '.join(type_list))}")
-        info_lines.append(f"  Service Servers:")
+            service, type_list = client
+            info_lines.append(f"  [yellow]{escape(service)}[/]: [magenta]{escape(', '.join(type_list))}[/]")
+
+        info_lines.append(f"[bold cyan]Service Servers:[/]")
         for server in service_servers:
-            service = server[0]
-            type_list = server[1]
-            info_lines.append(f"      {escape(service)}: {escape(', '.join(type_list))}")
-        info_lines.append(f"  Action Servers:")
+            service, type_list = server
+            info_lines.append(f"  [yellow]{escape(service)}[/]: [magenta]{escape(', '.join(type_list))}[/]")
+
+        info_lines.append(f"[bold cyan]Action Servers:[/]")
         for server in action_servers:
-            action = server[0]
-            type_list = server[1]
-            info_lines.append(f"      {escape(action)}: {escape(', '.join(type_list))}")
-        info_lines.append(f"  Action Clients:")
+            action, type_list = server
+            info_lines.append(f"  [yellow]{escape(action)}[/]: [blue]{escape(', '.join(type_list))}[/]")
+
+        info_lines.append(f"[bold cyan]Action Clients:[/]")
         for client in action_clients:
-            action = client[0]
-            type_list = client[1]
-            info_lines.append(f"      {escape(action)}: {escape(', '.join(type_list))}")
-        
+            action, type_list = client
+            info_lines.append(f"  [yellow]{escape(action)}[/]: [blue]{escape(', '.join(type_list))}[/]")
+
         self.info_dict[full_name] = info_lines
         return info_lines

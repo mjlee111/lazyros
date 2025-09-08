@@ -80,7 +80,8 @@ class EchoViewWidget(Container):
     def _switch_topic_and_subscribe(self) -> None:
         if self._sub is not None:
             try:
-                self.ros_node.destroy_subscription(self._sub)
+                if hasattr(self._sub, 'handle') and self._sub.handle is not None:
+                    self.ros_node.destroy_subscription(self._sub)
             except Exception:
                 pass
             self._sub = None

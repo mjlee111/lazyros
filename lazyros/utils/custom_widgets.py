@@ -23,7 +23,7 @@ class CustomListView(ListView):
                 return
 
             current = self.index or 0
-            if not self.children[current].display:
+            if current >= len(self.children) or not self.children[current].display:
                 self.index = self.children.index(items[0])
                 return
 

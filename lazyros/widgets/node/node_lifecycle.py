@@ -125,18 +125,28 @@ class LifecycleWidget(Container):
         namespace = self.selected_node_data.namespace
 
         is_lifecycle = False
-        srvs = self.ros_node.get_service_names_and_types_by_node(node, namespace)
-        for srv in srvs:
-            if "lifecycle_msgs/srv/GetState" in srv[1]:
-                is_lifecycle = True
-                break
+        try:
+            srvs = self.ros_node.get_service_names_and_types_by_node(node, namespace)
+            for srv in srvs:
+                if "lifecycle_msgs/srv/GetState" in srv[1]:
+                    is_lifecycle = True
+                    break
+        except Exception:
+            is_lifecycle = False
             
         if is_lifecycle:
-            self.lifecycle_dict[self.selected_node_data.full_name] = \
-                LifecycleData(is_lifecycle=True,
-                            get_lifecycle_client=self.ros_node.create_client(GetState, f"{self.selected_node_data.full_name}/get_state", callback_group=ReentrantCallbackGroup()),
-                            change_lifecycle_client=self.ros_node.create_client(ChangeState, f"{self.selected_node_data.full_name}/change_state", callback_group=ReentrantCallbackGroup()),
-                            get_transition_client=self.ros_node.create_client(GetAvailableTransitions, f"{self.selected_node_data.full_name}/get_available_transitions", callback_group=ReentrantCallbackGroup()))
+            try:
+                self.lifecycle_dict[self.selected_node_data.full_name] = \
+                    LifecycleData(is_lifecycle=True,
+                                get_lifecycle_client=self.ros_node.create_client(GetState, f"{self.selected_node_data.full_name}/get_state", callback_group=ReentrantCallbackGroup()),
+                                change_lifecycle_client=self.ros_node.create_client(ChangeState, f"{self.selected_node_data.full_name}/change_state", callback_group=ReentrantCallbackGroup()),
+                                get_transition_client=self.ros_node.create_client(GetAvailableTransitions, f"{self.selected_node_data.full_name}/get_available_transitions", callback_group=ReentrantCallbackGroup()))
+            except Exception:
+                self.lifecycle_dict[self.selected_node_data.full_name] = \
+                    LifecycleData(is_lifecycle=False,
+                                get_lifecycle_client=None,
+                                change_lifecycle_client=None,
+                                get_transition_client=None)
         else:
             self.lifecycle_dict[self.selected_node_data.full_name] = \
                 LifecycleData(is_lifecycle=False,
@@ -150,26 +160,32 @@ class LifecycleWidget(Container):
         full_name = self.selected_node_data.full_name
         
         lifecycle_client = self.lifecycle_dict[full_name].get_lifecycle_client
+        if not lifecycle_client or not hasattr(lifecycle_client, 'handle') or lifecycle_client.handle is None:
+            return f"[red]Lifecycle client for {full_name} is invalid[/]"
+            
         if not lifecycle_client.wait_for_service(timeout_sec=1.0):
             return f"[red]Lifecycle service for {full_name} is not available[/]"
 
         req = GetState.Request()
-        future = lifecycle_client.call_async(req)
-        self.ros_node.executor.spin_until_future_complete(future, timeout_sec=3.0)
-        if not future.done() or future.result() is None:
+        try:
+            future = lifecycle_client.call_async(req)
+            self.ros_node.executor.spin_until_future_complete(future, timeout_sec=3.0)
+            if not future.done() or future.result() is None:
+                return f"[red]Failed to get lifecycle state for {full_name}[/]"
+
+            current = future.result().current_state
+            if self.lifecycle_dict[full_name].current_lifecycle_id != current.id:
+                self.lifecycle_dict[full_name].state_changed = True
+                self.lifecycle_dict[full_name].current_lifecycle_id = current.id
+            else:
+                self.lifecycle_dict[full_name].state_changed = False
+
+            info_lines = []
+            info_lines.append(f"[cyan]Lifecycle State for[/] [yellow]{escape(full_name)}: [/]")
+            info_lines.append(f"  {current.label}[{current.id}]")
+            return info_lines
+        except Exception:
             return f"[red]Failed to get lifecycle state for {full_name}[/]"
-
-        current = future.result().current_state
-        if self.lifecycle_dict[full_name].current_lifecycle_id != current.id:
-            self.lifecycle_dict[full_name].state_changed = True
-            self.lifecycle_dict[full_name].current_lifecycle_id = current.id
-        else:
-            self.lifecycle_dict[full_name].state_changed = False
-
-        info_lines = []
-        info_lines.append(f"[cyan]Lifecycle State for[/] [yellow]{escape(full_name)}: [/]")
-        info_lines.append(f"  {current.label}[{current.id}]")
-        return info_lines
 
     def get_available_transitions(self):
         full_name = self.selected_node_data.full_name
