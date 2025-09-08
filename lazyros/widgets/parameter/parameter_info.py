@@ -105,18 +105,38 @@ class ParameterInfoWidget(Container):
         node_name = match.group(1).strip()
         param_name = match.group(2).strip()
 
-        if node_name not in self.param_client_dict:
+        client = None
+        if node_name in self.param_client_dict:
+            cached_client = self.param_client_dict[node_name]
+            try:
+                if not cached_client.service_is_ready():
+                    del self.param_client_dict[node_name]
+                else:
+                    client = cached_client
+            except Exception as e:
+                if "InvalidHandle" in str(type(e).__name__) or "destruction was requested" in str(e):
+                    del self.param_client_dict[node_name]
+                else:
+                    raise
+        
+        if client is None:
             client = self.ros_node.create_client(DescribeParameters, f"{node_name}/describe_parameters", callback_group=ReentrantCallbackGroup())
             self.param_client_dict[node_name] = client
-        else:
-            client = self.param_client_dict[node_name]
 
-        req = DescribeParameters.Request()
-        req.names = [param_name]
-        future = client.call_async(req)
-        self.ros_node.executor.spin_until_future_complete(future, timeout_sec=1.0)
-        if not future.done() or future.result() is None:
-            return [f"[red]Failed to get parameter info for: {escape(self.current_parameter)}[/]"]   
+        try:
+            req = DescribeParameters.Request()
+            req.names = [param_name]
+            future = client.call_async(req)
+            self.ros_node.executor.spin_until_future_complete(future, timeout_sec=1.0)
+            if not future.done() or future.result() is None:
+                return [f"[red]Failed to get parameter info for: {escape(self.current_parameter)}[/]"]
+        except Exception as e:
+            if "InvalidHandle" in str(type(e).__name__) or "destruction was requested" in str(e):
+                if node_name in self.param_client_dict:
+                    del self.param_client_dict[node_name]
+                return [f"[red]Client handle invalid for node: {escape(node_name)}[/]"]
+            else:
+                return [f"[red]Error getting parameter info: {escape(str(e))}[/]"]   
 
         res = future.result().descriptors[0]
         if res.type == ParameterType.PARAMETER_NOT_SET:

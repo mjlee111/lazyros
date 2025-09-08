@@ -65,8 +65,9 @@ class LogViewWidget(Container):
         self.logs_by_node: dict[str, list[str]] = {}
         self.current_node = None
         self.selected_node = None
-        qos_profile = QoSProfile(depth=rclpy.qos.QoSHistoryPolicy.KEEP_LAST,
-                                 reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
+        qos_profile = QoSProfile(depth=100,
+                                 reliability=rclpy.qos.ReliabilityPolicy.RELIABLE,
+                                 history=rclpy.qos.HistoryPolicy.KEEP_LAST,
                                  durability=rclpy.qos.DurabilityPolicy.VOLATILE)
         self.ros_node.create_subscription(
             Log,

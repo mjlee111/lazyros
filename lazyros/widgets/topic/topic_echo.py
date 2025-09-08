@@ -135,11 +135,10 @@ class EchoViewWidget(Container):
             f"[dim]({escape(topic_type)})[/][/bold]"
         )
 
-        qos_profile = QoSProfile(
-            depth=rclpy.qos.QoSHistoryPolicy.KEEP_LAST,
-            reliability=rclpy.qos.ReliabilityPolicy.BEST_EFFORT,
-            durability=rclpy.qos.DurabilityPolicy.VOLATILE
-        )
+        qos_profile = QoSProfile(depth=100,
+                                 reliability=rclpy.qos.ReliabilityPolicy.RELIABLE,
+                                 history=rclpy.qos.HistoryPolicy.KEEP_LAST,
+                                 durability=rclpy.qos.DurabilityPolicy.VOLATILE)
         try:
             self._sub = self.ros_node.create_subscription(
                 msg_type, self.current_topic, self.echo_callback,

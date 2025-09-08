@@ -171,6 +171,8 @@ class SearchFooter(Footer):
         else:
             if len(key) == 1:
                 self.search_input += key
+            elif event.character == "_":
+                self.search_input += "_"
             else:
                 return
         event.stop()
