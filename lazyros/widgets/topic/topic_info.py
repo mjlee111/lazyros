@@ -1,10 +1,12 @@
 import asyncio
+from typing import Any, Dict, List, Optional
+
 from rclpy.node import Node
+from rich.markup import escape
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Container
 from textual.widgets import Static
-from rich.markup import escape
-from rich.text import Text
 
 
 class TopicInfoWidget(Container):
@@ -16,7 +18,13 @@ class TopicInfoWidget(Container):
     }
     """
 
-    def __init__(self, ros_node: Node, **kwargs) -> None:
+    def __init__(self, ros_node: Node, **kwargs: Any) -> None:
+        """Initialize the TopicInfoWidget.
+        
+        Args:
+            ros_node: The ROS node instance for communication
+            **kwargs: Additional keyword arguments passed to the parent Container
+        """
         super().__init__(**kwargs)
         self.ros_node = ros_node
         self.info_dict: dict[str, list[str]] = {}
@@ -25,12 +33,26 @@ class TopicInfoWidget(Container):
         self.current_topic = None
 
     def compose(self) -> ComposeResult:
+        """Compose the widget layout.
+        
+        Returns:
+            ComposeResult: A generator yielding widget components
+        """
         yield Static("", id="topic-info")
 
-    def on_mount(self):
+    def on_mount(self) -> None:
+        """Handle the widget mount event.
+        
+        Sets up periodic interval to update display.
+        """
         self.set_interval(1, self.update_display)
 
-    async def update_display(self):
+    async def update_display(self) -> None:
+        """Update the topic information display.
+        
+        Shows topic details for the currently selected topic.
+        Updates are skipped if no topic is selected.
+        """
         try:
             self.topic_listview = self.app.query_one("#topic-listview")
             self.selected_topic = self.topic_listview.selected_topic
@@ -54,7 +76,13 @@ class TopicInfoWidget(Container):
         if info_lines:
             view.update(Text.from_markup("\n".join(info_lines)))
 
-    def show_topic_info(self) -> list[str] | None:
+    def show_topic_info(self) -> Optional[List[str]]:
+        """Retrieve and format topic information.
+        
+        Returns:
+            Optional[List[str]]: A list of formatted strings containing topic information,
+                                or None if information could not be retrieved
+        """
         if self.selected_topic in self.info_dict:
             return self.info_dict[self.selected_topic]
 

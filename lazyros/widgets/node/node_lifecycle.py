@@ -1,23 +1,33 @@
 import asyncio
+from dataclasses import dataclass
+from typing import Any, Callable, Dict, List, Optional, Union
+
+from lifecycle_msgs.srv import ChangeState, GetAvailableTransitions, GetState
+from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.node import Node
-from rclpy.action import graph
+from rich.markup import escape
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical
-from textual.widgets import RichLog, Button, Label, Static
-from rich.markup import escape
-from dataclasses import dataclass
-
-from lifecycle_msgs.srv import GetState, ChangeState, GetAvailableTransitions
-from rclpy.callback_groups import ReentrantCallbackGroup
+from textual.widgets import Button, Label, RichLog, Static
 
 
 @dataclass
 class LifecycleData:
+    """Data class to store lifecycle node information.
+    
+    Attributes:
+        is_lifecycle: Whether the node is a lifecycle node
+        get_lifecycle_client: Client for getting lifecycle state
+        change_lifecycle_client: Client for changing lifecycle state
+        get_transition_client: Client for getting available transitions
+        current_lifecycle_id: Current lifecycle state ID
+        state_changed: Whether the state has changed since last check
+    """
     is_lifecycle: bool
-    get_lifecycle_client: callable
-    change_lifecycle_client: callable
-    get_transition_client: callable
-    current_lifecycle_id: int = None
+    get_lifecycle_client: Optional[Callable]
+    change_lifecycle_client: Optional[Callable]
+    get_transition_client: Optional[Callable]
+    current_lifecycle_id: Optional[int] = None
     state_changed: bool = False
 
 class LifecycleWidget(Container):
@@ -50,7 +60,13 @@ class LifecycleWidget(Container):
         }
     """
 
-    def __init__(self, ros_node: Node, **kwargs) -> None:
+    def __init__(self, ros_node: Node, **kwargs: Any) -> None:
+        """Initialize the LifecycleWidget.
+        
+        Args:
+            ros_node: The ROS node instance for communication
+            **kwargs: Additional keyword arguments passed to the parent Container
+        """
         super().__init__(**kwargs)
         self.ros_node = ros_node
         self.rich_log = RichLog(wrap=True, highlight=True, markup=True, id="lifecycle-state", max_lines=1000)
@@ -61,17 +77,30 @@ class LifecycleWidget(Container):
         self.current_node_full_name = None
 
     def compose(self) -> ComposeResult:
+        """Compose the widget layout.
+        
+        Returns:
+            ComposeResult: A generator yielding widget components
+        """
         yield self.rich_log
         with Vertical(id="lifecycle-transitions"):
             yield Label("Available Lifecycle Transitions:")
             yield Horizontal(id="lifecycle-transition-buttons")
 
     def on_mount(self) -> None:
+        """Handle the widget mount event.
+        
+        Sets up periodic interval to update lifecycle display and hides transitions section initially.
+        """
         self.trans_section: Vertical = self.query_one("#lifecycle-transitions", Vertical)
         self.trans_section.add_class("hidden") 
         self.set_interval(0.3, self.update_display)
 
-    async def update_transition_buttons(self):
+    async def update_transition_buttons(self) -> None:
+        """Update the available transition buttons for the current lifecycle node.
+        
+        Fetches available transitions and creates buttons for each one.
+        """
         node_name = self.selected_node_data.full_name.lstrip('/')
         for button in self.query("#lifecycle-transition-buttons > Button"):
             button.remove()
@@ -83,7 +112,12 @@ class LifecycleWidget(Container):
                     Button(transition.transition.label, id=f"{node_name}-transition-button-{transition.transition.id}")
                 )
 
-    async def update_display(self):
+    async def update_display(self) -> None:
+        """Update the lifecycle information display.
+        
+        Shows lifecycle state and available transitions for the selected node.
+        Updates are skipped if no node is selected or if the node is shutdown.
+        """
         node_listview = self.app.query_one("#node-listview")
         if node_listview.selected_node_name is None:
             return
@@ -120,7 +154,11 @@ class LifecycleWidget(Container):
 
         await self.update_transition_buttons()
 
-    def create_lifecycle_data(self) -> bool:
+    def create_lifecycle_data(self) -> None:
+        """Create lifecycle clients for the selected node.
+        
+        Checks if the node is a lifecycle node and creates appropriate service clients.
+        """
         node = self.selected_node_data.node_name
         namespace = self.selected_node_data.namespace
 
@@ -154,7 +192,12 @@ class LifecycleWidget(Container):
                             change_lifecycle_client=None,
                             get_transition_client=None)
 
-    def get_lifecycle_state(self) -> None:
+    def get_lifecycle_state(self) -> List[str]:
+        """Get the current lifecycle state of the selected node.
+        
+        Returns:
+            List[str]: A list of formatted strings containing lifecycle state information
+        """
         """If the node is a lifecycle node, get its state."""
         try:
             full_name = self.selected_node_data.full_name
@@ -189,7 +232,12 @@ class LifecycleWidget(Container):
         except Exception:
             return [f"[red]Error accessing lifecycle data[/]"]
 
-    def get_available_transitions(self):
+    def get_available_transitions(self) -> Optional[Any]:
+        """Get available transitions for the current lifecycle node.
+        
+        Returns:
+            Optional[Any]: Available transitions or None if unable to retrieve
+        """
         try:
             full_name = self.selected_node_data.full_name
             
@@ -212,10 +260,20 @@ class LifecycleWidget(Container):
             return None
 
     async def on_button_pressed(self, event: Button.Pressed) -> None:
+        """Handle button press events for lifecycle transitions.
+        
+        Args:
+            event: The button press event containing the transition ID
+        """
         transition_id = int(event.button.id.split("-")[-1])
         await asyncio.to_thread(self.trigger_transition, transition_id)
 
-    def trigger_transition(self, transition_id: int):
+    def trigger_transition(self, transition_id: int) -> None:
+        """Trigger a lifecycle transition.
+        
+        Args:
+            transition_id: The ID of the transition to trigger
+        """
         try:
             full_name = self.selected_node_data.full_name
             

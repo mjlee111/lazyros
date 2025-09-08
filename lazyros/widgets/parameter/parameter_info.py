@@ -1,18 +1,16 @@
-import re
 import asyncio
+import re
+from typing import Any, Dict, List, Optional
 
+from rcl_interfaces.msg import ParameterType
+from rcl_interfaces.srv import DescribeParameters
+from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.node import Node
+from rich.markup import escape
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Container
-from textual.widgets import RichLog
-from rich.markup import escape
-
-from rcl_interfaces.srv import DescribeParameters
-from rcl_interfaces.msg import ParameterType
-from rclpy.callback_groups import ReentrantCallbackGroup
-from textual.widgets import Static
-import asyncio
-from rich.text import Text
+from textual.widgets import RichLog, Static
 
 
 
@@ -37,7 +35,13 @@ class ParameterInfoWidget(Container):
         }
     """
 
-    def __init__(self, ros_node: Node, **kwargs) -> None:
+    def __init__(self, ros_node: Node, **kwargs: Any) -> None:
+        """Initialize the ParameterInfoWidget.
+        
+        Args:
+            ros_node: The ROS node instance for communication
+            **kwargs: Additional keyword arguments passed to the parent Container
+        """
         super().__init__(**kwargs)
 
         self.ros_node = ros_node
@@ -49,12 +53,26 @@ class ParameterInfoWidget(Container):
         self.select_parameter = None
 
     def compose(self) -> ComposeResult:
+        """Compose the widget layout.
+        
+        Returns:
+            ComposeResult: A generator yielding widget components
+        """
         yield Static("", id="parameter-info")
 
-    def on_mount(self):
+    def on_mount(self) -> None:
+        """Handle the widget mount event.
+        
+        Sets up periodic interval to update display.
+        """
         self.set_interval(1, self.update_display)
 
-    async def update_display(self):
+    async def update_display(self) -> None:
+        """Update the parameter information display.
+        
+        Shows parameter details for the currently selected parameter.
+        Updates are skipped if no parameter is selected.
+        """
         
         self.listview_widget = self.app.query_one("#parameter-listview")
         self.selected_parameter = self.listview_widget.selected_param if self.listview_widget else None
@@ -73,7 +91,12 @@ class ParameterInfoWidget(Container):
         if info_lines:
             view.update(Text.from_markup("\n".join(info_lines)))
 
-    def show_param_info(self):
+    def show_param_info(self) -> List[str]:
+        """Retrieve and format parameter information.
+        
+        Returns:
+            List[str]: A list of formatted strings containing parameter information
+        """
         
         match = re.fullmatch(r"([^:]+):\s*(.+)", self.current_parameter)
         if not match:

@@ -1,21 +1,18 @@
-import re
 import asyncio
-from rcl_interfaces.srv import GetParameters, SetParameters
-
-from rclpy.node import Node
-from textual.app import ComposeResult
-from textual.containers import Container
-from textual.widgets import RichLog
-from rich.markup import escape
+import re
 from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
 import rclpy
 from rcl_interfaces.msg import ParameterType
-
+from rcl_interfaces.srv import GetParameters, SetParameters
 from rclpy.callback_groups import ReentrantCallbackGroup
-from textual.widgets import Static
-import asyncio
+from rclpy.node import Node
+from rich.markup import escape
 from rich.text import Text
+from textual.app import ComposeResult
+from textual.containers import Container
+from textual.widgets import RichLog, Static
 
 
 PARAMETER_TYPE_MAP = {
@@ -32,8 +29,14 @@ PARAMETER_TYPE_MAP = {
 
 @dataclass
 class ParameterClients:
-    get_parameter: None
-    set_parameter: None
+    """Data class to store parameter service clients.
+    
+    Attributes:
+        get_parameter: Client for getting parameter values
+        set_parameter: Client for setting parameter values
+    """
+    get_parameter: Optional[Any]
+    set_parameter: Optional[Any]
 
 class ParameterValueWidget(Container):
     """Widget for displaying ROS parameter values."""
@@ -45,6 +48,12 @@ class ParameterValueWidget(Container):
     """
 
     def __init__(self, ros_node: Node, **kwargs) -> None:
+        """Initialize the ParameterValueWidget.
+        
+        Args:
+            ros_node: The ROS node instance for communication
+            **kwargs: Additional keyword arguments passed to the parent Container
+        """
         super().__init__(**kwargs)
         self.ros_node = ros_node
         self.rich_log = RichLog(wrap=True, highlight=True, markup=True, id="parameter-value-log", max_lines=1000)
@@ -55,12 +64,26 @@ class ParameterValueWidget(Container):
         self.selected_parameter = None
 
     def compose(self) -> ComposeResult:
+        """Compose the widget layout.
+        
+        Returns:
+            ComposeResult: A generator yielding widget components
+        """
         yield Static("", id="parameter-value")
 
-    def on_mount(self):
+    def on_mount(self) -> None:
+        """Handle the widget mount event.
+        
+        Sets up periodic interval to update display.
+        """
         self.set_interval(1, self.update_display)
 
-    async def update_display(self):
+    async def update_display(self) -> None:
+        """Update the parameter value display.
+        
+        Shows parameter values for the currently selected parameter.
+        Updates are skipped if no parameter is selected.
+        """
         try:
             self.listview_widget = self.app.query_one("#parameter-listview")
             self.selected_parameter = self.listview_widget.selected_param if self.listview_widget else None
@@ -82,7 +105,12 @@ class ParameterValueWidget(Container):
             pass
 
 
-    def show_param_value(self):
+    def show_param_value(self) -> List[str]:
+        """Retrieve and format parameter value information.
+        
+        Returns:
+            List[str]: A list of formatted strings containing parameter value information
+        """
         try:
             match = re.fullmatch(r"([^:]+):\s*(.+)", self.current_parameter)
             if not match:

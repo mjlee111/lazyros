@@ -1,26 +1,20 @@
 import asyncio
 import os
-from typing import List, Optional
 from concurrent.futures import ThreadPoolExecutor
+from typing import Any, List, Optional
 
+from rcl_interfaces.srv import ListParameters
+from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.node import Node
+from rich.markup import escape
+from rich.text import Text as RichText
 from textual.app import ComposeResult
 from textual.containers import Container
-from textual.widgets import (
-    Label,
-    ListItem,
-)
-from rich.markup import escape
+from textual.widgets import Label, ListItem
 
+from lazyros.utils.custom_widgets import CustomListView
 from lazyros.utils.ignore_parser import IgnoreParser
-from rcl_interfaces.srv import ListParameters
-
-from rclpy.callback_groups import ReentrantCallbackGroup
-from rich.text import Text as RichText
-
 from lazyros.utils.utility import create_css_id
-from lazyros.utils.custom_widgets import CustomListView 
-
 
 
 class ParameterListWidget(Container):
@@ -38,7 +32,13 @@ class ParameterListWidget(Container):
         }
     """
 
-    def __init__(self, ros_node: Node, **kwargs) -> None:
+    def __init__(self, ros_node: Node, **kwargs: Any) -> None:
+        """Initialize the ParameterListWidget.
+        
+        Args:
+            ros_node: The ROS node instance for communication
+            **kwargs: Additional keyword arguments passed to the parent Container
+        """
         super().__init__(**kwargs)
         self.ros_node = ros_node
         self.listview = CustomListView()
@@ -54,14 +54,31 @@ class ParameterListWidget(Container):
         self._prev_searching = False
 
     def compose(self) -> ComposeResult:
+        """Compose the widget layout.
+        
+        Returns:
+            ComposeResult: A generator yielding widget components
+        """
         yield self.listview
 
     def on_mount(self) -> None:
+        """Handle the widget mount event.
+        
+        Sets up periodic interval to update parameter list and initializes list view index.
+        """
         self.set_interval(1, self.update_parameter_list)
         if self.listview.children:
             self.listview.index = 0
 
-    def list_parameters(self, node_name):
+    def list_parameters(self, node_name: str) -> Optional[List[str]]:
+        """List parameters for a specific node.
+        
+        Args:
+            node_name: The name of the node to list parameters for
+            
+        Returns:
+            Optional[List[str]]: List of parameter names or None if failed
+        """
         try:
             list_parameter_client = self.ros_node.create_client(ListParameters, f"{node_name}/list_parameters", callback_group=ReentrantCallbackGroup())
             
@@ -76,7 +93,12 @@ class ParameterListWidget(Container):
         except Exception:
             return None
 
-    async def update_parameter_list(self):
+    async def update_parameter_list(self) -> None:
+        """Update the list of parameters.
+        
+        Fetches parameters from active nodes and updates the display.
+        Handles search filtering if active, otherwise shows all available parameters.
+        """
         try:
             if self.searching:
                 self._prev_searching = True
@@ -148,7 +170,12 @@ class ParameterListWidget(Container):
         except Exception as e:
             self.log(f"Error updating parameter list: {e}")
 
-    def on_list_view_highlighted(self, event):
+    def on_list_view_highlighted(self, event: Any) -> None:
+        """Handle list view highlighting events.
+        
+        Args:
+            event: The list view highlight event
+        """
         self.app.current_pane_index = 2
         self.app.focused_pane = "left"
 
@@ -165,7 +192,15 @@ class ParameterListWidget(Container):
         if self.selected_param != param_name:
             self.selected_param = param_name
 
-    def apply_search_filter(self, query) -> None:
+    def apply_search_filter(self, query: str) -> List[str]:
+        """Apply search filter to parameter list.
+        
+        Args:
+            query: The search query string
+            
+        Returns:
+            List[str]: List of parameter names matching the query
+        """
         query = query.lower().strip()
         if query:
             names = [n for n in self.list_for_search if query in n.lower()]

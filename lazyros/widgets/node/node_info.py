@@ -1,14 +1,14 @@
+import asyncio
 import subprocess
+from typing import Any, Dict, List, Optional, Union
 
-from rclpy.node import Node
 from rclpy.action import graph
+from rclpy.node import Node
+from rich.markup import escape
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Container
-from textual.widgets import RichLog
-from rich.markup import escape
-from textual.widgets import Static 
-from rich.text import Text
-import asyncio
+from textual.widgets import RichLog, Static
 
 
 class InfoViewWidget(Container):
@@ -20,7 +20,13 @@ class InfoViewWidget(Container):
     }
     """
 
-    def __init__(self, ros_node: Node, **kwargs) -> None:
+    def __init__(self, ros_node: Node, **kwargs: Any) -> None:
+        """Initialize the InfoViewWidget.
+        
+        Args:
+            ros_node: The ROS node instance for communication
+            **kwargs: Additional keyword arguments passed to the parent Container
+        """
         super().__init__(**kwargs)
         self.ros_node = ros_node 
         self.rich_log = RichLog(wrap=True, highlight=True, markup=True, id="info-log", max_lines=1000)
@@ -30,12 +36,26 @@ class InfoViewWidget(Container):
         self.current_node_full_name = None
 
     def compose(self) -> ComposeResult:
+        """Compose the widget layout.
+        
+        Returns:
+            ComposeResult: A generator yielding widget components
+        """
         yield Static("", id="node-info")
         
     def on_mount(self) -> None:
+        """Handle the widget mount event.
+        
+        Sets up periodic interval to update node information.
+        """
         self.set_interval(1, self.update_info) 
             
-    async def update_info(self):
+    async def update_info(self) -> None:
+        """Update the node information display.
+        
+        Fetches information about the selected node and displays it.
+        Updates are skipped if no node is selected or if the node is shutdown.
+        """
         node_listview = self.app.query_one("#node-listview")
         
         view = self.query_one("#node-info", Static)
@@ -61,7 +81,13 @@ class InfoViewWidget(Container):
             view.update(Text.from_markup("\n".join(info_lines)))
 
 
-    def show_node_info(self) -> None:
+    def show_node_info(self) -> Optional[List[str]]:
+        """Retrieve and format node information.
+        
+        Returns:
+            Optional[List[str]]: A list of formatted strings containing node information,
+                                or None if information could not be retrieved
+        """
         node_data = self.selected_node_data
         if node_data.full_name in self.info_dict:
             return self.info_dict[node_data.full_name]

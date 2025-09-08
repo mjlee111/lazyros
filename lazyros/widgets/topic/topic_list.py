@@ -1,23 +1,19 @@
 import asyncio
+import os
+from typing import Any, Dict, List, Optional, Set
+
 from rclpy.node import Node
+from rich.markup import escape
+from rich.text import Text as RichText
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Container, VerticalScroll, ScrollableContainer
-from textual.widgets import (
-    Label,
-    ListItem,
-    ListView,
-)
-from textual.events import Key
-from rich.markup import escape
+from textual.containers import Container, ScrollableContainer, VerticalScroll
+from textual.events import Focus, Key
+from textual.widgets import Label, ListItem, ListView
 
-from lazyros.utils.ignore_parser import IgnoreParser
-import os
-
-from rich.text import Text as RichText
-from textual.events import Focus
-from lazyros.utils.utility import create_css_id
 from lazyros.utils.custom_widgets import CustomListView
+from lazyros.utils.ignore_parser import IgnoreParser
+from lazyros.utils.utility import create_css_id
 
 
 class TopicListWidget(Container):
@@ -35,7 +31,13 @@ class TopicListWidget(Container):
         }
     """
 
-    def __init__(self, ros_node: Node, **kwargs):
+    def __init__(self, ros_node: Node, **kwargs: Any) -> None:
+        """Initialize the TopicListWidget.
+        
+        Args:
+            ros_node: The ROS node instance for communication
+            **kwargs: Additional keyword arguments passed to the parent Container
+        """
         super().__init__(**kwargs)
         self.ros_node = ros_node
         self.listview = CustomListView()
@@ -49,14 +51,28 @@ class TopicListWidget(Container):
         self.searching = False
 
     def compose(self) -> ComposeResult:
+        """Compose the widget layout.
+        
+        Returns:
+            ComposeResult: A generator yielding widget components
+        """
         yield self.listview
 
     def on_mount(self) -> None:
+        """Handle the widget mount event.
+        
+        Sets up periodic interval to update topic list and initializes list view index.
+        """
         self.set_interval(1, self.update_topic_list)
         if self.listview.children:
             self.listview.index = 0
 
     async def update_topic_list(self) -> None:
+        """Fetch and update the list of topics.
+        
+        Handles search filtering if active, otherwise shows all available topics.
+        Maintains topic dictionary with type information.
+        """
         """Fetch and update the list of topics."""
 
         if self.searching:
@@ -115,7 +131,12 @@ class TopicListWidget(Container):
             if self.listview.index and self.listview.index >= len(self.listview.children):
                 self.listview.index = max(0, len(self.listview.children) - 1)
 
-    def on_list_view_highlighted(self, event):
+    def on_list_view_highlighted(self, event: Any) -> None:
+        """Handle list view highlighting events.
+        
+        Args:
+            event: The list view highlight event
+        """
 
         self.app.focused_pane = "left"
         self.app.current_pane_index = 1
@@ -133,7 +154,15 @@ class TopicListWidget(Container):
         if self.selected_topic != topic_name:
             self.selected_topic = topic_name
 
-    def apply_search_filter(self, query) -> None:
+    def apply_search_filter(self, query: str) -> List[str]:
+        """Apply search filter to topic list.
+        
+        Args:
+            query: The search query string
+            
+        Returns:
+            List[str]: List of topic names matching the query
+        """
         query = query.lower().strip()
         if query:
             names = [n for n in list(self.topic_dict.keys()) if query in n.lower()]
