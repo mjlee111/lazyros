@@ -1,6 +1,6 @@
 [project]
 name = "lazyros"
-version = "0.1.9.4"
+version = "0.1.9.6"
 description = ""
 authors = [
     {name = "Harumo Sasatake",email = "sasatake.harumo@techmagic.co.jp"}
@@ -21,7 +21,6 @@ Repository = "https://github.com/TechMagicKK/lazyros"
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
-
 
 [tool.poetry.scripts]
 lazyros = "lazyros.lazyros:main"
