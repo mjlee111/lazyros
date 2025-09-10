@@ -27,12 +27,18 @@ A simple and friendly terminal UI for ROS2.
 
 ## Installation
 
-- pip (recommended)
+- pipx (recommended)
   ```shell
-  pip install lazyros
+  pipx install lazyros
   ```
 
+- pip
+  ````
+  pip install lazyros
+  ````
+  
 - from source
+  
   ```shell
   git clone https://github.com/TechMagicKK/lazyros.git
   cd lazyros
@@ -43,9 +49,8 @@ A simple and friendly terminal UI for ROS2.
 
 ## Usage
 
-Just run following command.
-
 ```shell
+source /opt/ros/humble/setup.bash
 lazyros
 ```
 
