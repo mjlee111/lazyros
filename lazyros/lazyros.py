@@ -48,7 +48,7 @@ class HelpModal(ModalScreen):
             "Help Menu\n"
             "\n"
             "enter        Focus right window\n"
-            "[            Previous Tab\n"
+            "\[            Previous Tab\n"
             "]            Next Tab\n"
             "tab          Focus next container\n"
             "shift+tab    Focus previous container"

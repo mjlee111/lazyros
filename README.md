@@ -1,28 +1,21 @@
 # lazyros
 
 A simple and friendly terminal UI for ROS2.
+> Note: Only **ROS 2 Humble** is supported.
 
-![image](./asset/lazyros_usage_short_movie.gif)
-
+![image](./asset/demo.gif)
 
 
 ## Features
+- View and manage node list and states (with Lifecycle support)
+- Inspect topics, services, and parameters
+- Built-in log/echo viewer with highlighting and search
+- Fast keyboard-driven navigation
 
-### Node (include life-cycle node)
-
-- viewing logs by node
-- viewing node info
-- starting / stopping node
-- changing life-cycle node status
-
-### Topic
-
-- viewing topic (like a `ros2 topic echo`)
-
-### Parameter
-
-- setting / viewing parameters
-
+## Requirements
+- Ubuntu 22.04 + ROS 2 Humble
+- Python 3.10+
+- Dependencies: `rclpy`, `textual`, `rich`, etc.
 
 
 ## Installation
@@ -45,16 +38,12 @@ A simple and friendly terminal UI for ROS2.
   pip install -r requirements.txt
   ```
 
-
-
 ## Usage
 
 ```shell
 source /opt/ros/humble/setup.bash
 lazyros
 ```
-
-
 
 ## Getting started
 
@@ -73,6 +62,23 @@ lazyros
    lazyros
    ```
 
+## Configuration
+
+You can tell lazyros to ignore specific nodes, topics, or parameters by creating a file:
+```sh
+~/.config/lazyros/ignore.yaml
+```
+If this file doesn’t exist, lazyros will just run normally.
+
+Example:
+```bash
+nodes:
+  - /lazyros*
+topics:
+  - /parameter_events
+parameters:
+  - /lazyros*
+```
 
 
 ## Help
