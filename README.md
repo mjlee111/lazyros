@@ -33,7 +33,7 @@ A simple and friendly terminal UI for ROS2.
   ```
 
 - pip
-  ````
+  ````shell
   pip install lazyros
   ````
   
