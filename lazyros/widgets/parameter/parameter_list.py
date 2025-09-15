@@ -6,6 +6,7 @@ from typing import Any, List, Optional
 from rcl_interfaces.srv import ListParameters
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.node import Node
+from lazyros.utils.ros_compatibility import create_callback_group
 from rich.markup import escape
 from rich.text import Text as RichText
 from textual.app import ComposeResult
@@ -80,7 +81,7 @@ class ParameterListWidget(Container):
             Optional[List[str]]: List of parameter names or None if failed
         """
         try:
-            list_parameter_client = self.ros_node.create_client(ListParameters, f"{node_name}/list_parameters", callback_group=ReentrantCallbackGroup())
+            list_parameter_client = self.ros_node.create_client(ListParameters, f"{node_name}/list_parameters", callback_group=create_callback_group())
             
             req = ListParameters.Request()
             future = list_parameter_client.call_async(req)

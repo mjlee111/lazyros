@@ -5,6 +5,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from lifecycle_msgs.srv import ChangeState, GetAvailableTransitions, GetState
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.node import Node
+from lazyros.utils.ros_compatibility import create_callback_group
 from rich.markup import escape
 from textual.app import ComposeResult
 from textual.containers import Container, Horizontal, Vertical
@@ -176,9 +177,9 @@ class LifecycleWidget(Container):
             try:
                 self.lifecycle_dict[self.selected_node_data.full_name] = \
                     LifecycleData(is_lifecycle=True,
-                                get_lifecycle_client=self.ros_node.create_client(GetState, f"{self.selected_node_data.full_name}/get_state", callback_group=ReentrantCallbackGroup()),
-                                change_lifecycle_client=self.ros_node.create_client(ChangeState, f"{self.selected_node_data.full_name}/change_state", callback_group=ReentrantCallbackGroup()),
-                                get_transition_client=self.ros_node.create_client(GetAvailableTransitions, f"{self.selected_node_data.full_name}/get_available_transitions", callback_group=ReentrantCallbackGroup()))
+                                get_lifecycle_client=self.ros_node.create_client(GetState, f"{self.selected_node_data.full_name}/get_state", callback_group=create_callback_group()),
+                                change_lifecycle_client=self.ros_node.create_client(ChangeState, f"{self.selected_node_data.full_name}/change_state", callback_group=create_callback_group()),
+                                get_transition_client=self.ros_node.create_client(GetAvailableTransitions, f"{self.selected_node_data.full_name}/get_available_transitions", callback_group=create_callback_group()))
             except Exception:
                 self.lifecycle_dict[self.selected_node_data.full_name] = \
                     LifecycleData(is_lifecycle=False,

@@ -5,7 +5,7 @@ import rclpy
 from rcl_interfaces.msg import Log
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.node import Node
-from rclpy.qos import QoSProfile
+from lazyros.utils.ros_compatibility import create_qos_profile, create_callback_group
 from rich.markup import escape
 from textual.app import ComposeResult
 from textual.binding import Binding
@@ -65,16 +65,13 @@ class LogViewWidget(Container):
         self.logs_by_node: dict[str, list[str]] = {}
         self.current_node = None
         self.selected_node = None
-        qos_profile = QoSProfile(depth=100,
-                                 reliability=rclpy.qos.ReliabilityPolicy.RELIABLE,
-                                 history=rclpy.qos.HistoryPolicy.KEEP_LAST,
-                                 durability=rclpy.qos.DurabilityPolicy.VOLATILE)
+        qos_profile = create_qos_profile(depth=100)
         self.ros_node.create_subscription(
             Log,
             '/rosout',
             self.log_callback,
             qos_profile,
-            callback_group=ReentrantCallbackGroup()
+            callback_group=create_callback_group()
         )
         self._log_buffer = -1000
 

@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 import rclpy
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.node import Node
-from rclpy.qos import QoSProfile
+from lazyros.utils.ros_compatibility import create_qos_profile, create_callback_group
 from rich.markup import escape
 from rosidl_runtime_py.utilities import get_message
 from textual.app import ComposeResult
@@ -41,7 +41,7 @@ class EchoViewWidget(Container):
         self.rich_log = CustomRichLog(wrap=True, highlight=True, markup=True, id="echo-log", max_lines=1000)
         self._prev_echo_time = time.time()
 
-        self.callback_group = ReentrantCallbackGroup()
+        self.callback_group = create_callback_group()
 
     def compose(self) -> ComposeResult:
         """Compose the widget layout.
@@ -135,10 +135,7 @@ class EchoViewWidget(Container):
             f"[dim]({escape(topic_type)})[/][/bold]"
         )
 
-        qos_profile = QoSProfile(depth=100,
-                                 reliability=rclpy.qos.ReliabilityPolicy.RELIABLE,
-                                 history=rclpy.qos.HistoryPolicy.KEEP_LAST,
-                                 durability=rclpy.qos.DurabilityPolicy.VOLATILE)
+        qos_profile = create_qos_profile(depth=100)
         try:
             self._sub = self.ros_node.create_subscription(
                 msg_type, self.current_topic, self.echo_callback,

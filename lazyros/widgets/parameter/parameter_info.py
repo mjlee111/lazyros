@@ -6,6 +6,7 @@ from rcl_interfaces.msg import ParameterType
 from rcl_interfaces.srv import DescribeParameters
 from rclpy.callback_groups import ReentrantCallbackGroup
 from rclpy.node import Node
+from lazyros.utils.ros_compatibility import create_callback_group
 from rich.markup import escape
 from rich.text import Text
 from textual.app import ComposeResult
@@ -120,7 +121,7 @@ class ParameterInfoWidget(Container):
                     raise
         
         if client is None:
-            client = self.ros_node.create_client(DescribeParameters, f"{node_name}/describe_parameters", callback_group=ReentrantCallbackGroup())
+            client = self.ros_node.create_client(DescribeParameters, f"{node_name}/describe_parameters", callback_group=create_callback_group())
             self.param_client_dict[node_name] = client
 
         try:

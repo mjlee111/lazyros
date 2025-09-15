@@ -1,7 +1,7 @@
 # lazyros
 
 A simple and friendly terminal UI for ROS2.
-> Note: Only **ROS 2 Humble** is supported.
+> Note: Supports **ROS 2 Foxy, Galactic, Humble, Iron, Jazzy, and Rolling**.
 
 ![image](./asset/demo.gif)
 
@@ -13,8 +13,8 @@ A simple and friendly terminal UI for ROS2.
 - Fast keyboard-driven navigation
 
 ## Requirements
-- Ubuntu 22.04 + ROS 2 Humble
-- Python 3.10+
+- Ubuntu 20.04+ + ROS 2 Foxy/Galactic/Humble/Iron/Jazzy/Rolling
+- Python 3.8+
 - Dependencies: `rclpy`, `textual`, `rich`, etc.
 
 
@@ -41,7 +41,28 @@ A simple and friendly terminal UI for ROS2.
 ## Usage
 
 ```shell
+# For ROS 2 Foxy
+source /opt/ros/foxy/setup.bash
+lazyros
+
+# For ROS 2 Galactic
+source /opt/ros/galactic/setup.bash
+lazyros
+
+# For ROS 2 Humble
 source /opt/ros/humble/setup.bash
+lazyros
+
+# For ROS 2 Iron
+source /opt/ros/iron/setup.bash
+lazyros
+
+# For ROS 2 Jazzy
+source /opt/ros/jazzy/setup.bash
+lazyros
+
+# For ROS 2 Rolling
+source /opt/ros/rolling/setup.bash
 lazyros
 ```
 

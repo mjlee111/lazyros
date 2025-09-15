@@ -12,6 +12,7 @@ from textual.widgets import Header, Static, TabbedContent, TabPane
 
 from lazyros.utils.custom_widgets import CustomListView, SearchFooter
 from lazyros.utils.utility import RosRunner
+from lazyros.utils.ros_compatibility import check_ros_compatibility, get_ros_info
 from lazyros.widgets.node.node_info import InfoViewWidget
 from lazyros.widgets.node.node_lifecycle import LifecycleWidget
 from lazyros.widgets.node.node_list import NodeListWidget
@@ -79,17 +80,12 @@ class LazyRosApp(App):
     current_pane_index = reactive(0)
 
     def __init__(self, **kwargs: Any) -> None:
-        """Initialize the LazyROS application.
-        
-        Args:
-            **kwargs: Keyword arguments passed to the parent App class.
-            
-        Raises:
-            Exception: If ROS node initialization fails.
-        """
         super().__init__(**kwargs)
-
         self._searching = False
+        
+        if not check_ros_compatibility():
+            self.exit(message="Unsupported ROS2 distribution.")
+        
         try:
             ros_runner.start()
             self.ros_node = ros_runner.node
@@ -98,16 +94,7 @@ class LazyRosApp(App):
             self.exit(message=f"Failed to initialize ROS node: {e}")
 
     def get_ros_info(self) -> str:
-        """Get ROS environment information for display in the title bar.
-        
-        Returns:
-            str: Formatted string containing ROS distribution, domain ID, and DDS implementation.
-        """
-        ros_distro = os.environ.get("ROS_DISTRO", "unknown")
-        ros_domain = os.environ.get("ROS_DOMAIN_ID", "0")
-        dds_implementation = os.environ.get("RMW_IMPLEMENTATION", "unknown")
-        title = f"ROS_DISTRO={ros_distro}  |  ROS_DOMAIN_ID={ros_domain}  |  DDS_IMPLEMENTATION={dds_implementation}"
-        return title
+        return get_ros_info()
 
     def on_mount(self) -> None:
         """Handle the mount event by initializing the UI and setting focus.
@@ -411,11 +398,10 @@ class LazyRosApp(App):
 
 
 def main() -> None:
-    """Main entry point for the LazyROS application.
+    if not check_ros_compatibility():
+        print("Error: Unsupported ROS2 distribution.")
+        return
     
-    Initializes the application, sets up signal handling for graceful shutdown,
-    and runs the main event loop.
-    """
     app = LazyRosApp()
 
     def _sigint(_sig: int, _frm: Any) -> None:

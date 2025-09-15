@@ -7,7 +7,7 @@ authors = [
 ]
 license = {text = "Apache-2.0"}
 readme = "README.md"
-requires-python = ">=3.10,<4.0.0"
+requires-python = ">=3.8,<4.0.0"
 dependencies = [
     "pyyaml (>=6.0.2,<7.0.0)",
     "numpy",
