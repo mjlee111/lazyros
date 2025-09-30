@@ -39,20 +39,10 @@ def is_ros2_jazzy() -> bool:
     return get_ros_distro() == "jazzy"
 
 
-def is_ros2_iron() -> bool:
-    return get_ros_distro() == "iron"
-
-
-def is_ros2_galactic() -> bool:
-    return get_ros_distro() == "galactic"
-
-
-def is_ros2_foxy() -> bool:
-    return get_ros_distro() == "foxy"
 
 
 def is_supported_ros2() -> bool:
-    supported_distros = ["humble", "jazzy", "iron", "galactic", "foxy", "rolling"]
+    supported_distros = ["humble", "jazzy"]
     return get_ros_distro() in supported_distros
 
 
@@ -157,6 +147,6 @@ def check_ros_compatibility() -> bool:
     if not is_supported_ros2():
         ros_distro = get_ros_distro()
         print(f"Warning: Unsupported ROS2 distribution: {ros_distro}")
-        print("Supported distributions: foxy, galactic, humble, iron, jazzy, rolling")
+        print("Supported distributions: humble, jazzy")
         return False
     return True
